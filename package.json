@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fontsource-variable/fredoka": "^5.0.3",
+    "@unhead/vue": "^1.1.27",
     "vue": "^3.2.47",
     "vue-router": "4"
   },

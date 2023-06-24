@@ -3,6 +3,7 @@ import IconHint from "~icons/feather/zap";
 import IconFinish from "~icons/feather/award";
 import { ref, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
+import { useHead } from "@unhead/vue";
 import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
 import { generateLevel, sections } from "../sections";
 import { Level, Question } from "../types";
@@ -75,6 +76,7 @@ function chooseAnswer(index: number) {
 
 function startLevel(levelId: number) {
   if (!section) return;
+  useHead({ title: `${section.name} - Level ${levelId}` });
   currentLevel.value = generateLevel(section, levelId, 20, 4);
   currentQuestion.value = currentLevel.value.questions[0];
   remainingHints.value = 5;
@@ -128,7 +130,9 @@ function showHint() {
           <p>You finished {{ section.name }} level {{ currentLevel.level }}!</p>
           <p class="my-4 text-2xl tracking-widest">{{ finalPoints }} points</p>
           <div class="flex justify-between">
-            <button class="btn" @click="startLevel(currentLevel.level)">Try Again</button>
+            <button class="btn" @click="startLevel(currentLevel.level)">
+              Try Again
+            </button>
             <button class="btn" @click="nextLevel()">Next Level</button>
           </div>
         </div>

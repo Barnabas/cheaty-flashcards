@@ -7,6 +7,9 @@ dependencies:
   '@unhead/vue':
     specifier: ^1.1.27
     version: 1.1.27(vue@3.2.47)
+  howler:
+    specifier: ^2.2.3
+    version: 2.2.3
   vue:
     specifier: ^3.2.47
     version: 3.2.47
@@ -18,6 +21,9 @@ devDependencies:
   '@iconify-json/feather':
     specifier: ^1.1.4
     version: 1.1.4
+  '@types/howler':
+    specifier: ^2.2.7
+    version: 2.2.7
   '@vitejs/plugin-vue':
     specifier: ^4.1.0
     version: 4.1.0(vite@4.3.9)(vue@3.2.47)
@@ -368,6 +374,10 @@ packages:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.15.0
+    dev: true
+
+  /@types/howler@2.2.7:
+    resolution: {integrity: sha512-PEZldwZqJJw1PWRTpupyC7ajVTZA8aHd8nB/Y0n6zRZi5u8ktYDntsHj13ltEiBRqWwF06pASxBEvCTxniG8eA==}
     dev: true
 
   /@unhead/dom@1.1.27:
@@ -928,6 +938,10 @@ packages:
 
   /hookable@5.5.3:
     resolution: {integrity: sha512-Yc+BQe8SvoXH1643Qez1zqLRmbA5rCL+sSmk6TVos0LWVfNIB7PGncdlId77WzLGSIB5KaWgTaNTs2lNVEI6VQ==}
+    dev: false
+
+  /howler@2.2.3:
+    resolution: {integrity: sha512-QM0FFkw0LRX1PR8pNzJVAY25JhIWvbKMBFM4gqk+QdV+kPXOhleWGCB6AiAF/goGjIHK2e/nIElplvjQwhr0jg==}
     dev: false
 
   /human-signals@2.1.0:

@@ -7,6 +7,7 @@ import { useHead } from "@unhead/vue";
 import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
 import { generateLevel, sections } from "../sections";
 import { Level, Question } from "../types";
+import { playSound } from "../sounds";
 
 type AnswerType = "wrong" | "right" | "hint" | "hide";
 
@@ -60,6 +61,7 @@ function chooseAnswer(index: number) {
     if (questionIdx.value + 1 >= currentLevel.value.questions.length) {
       finishLevel();
     } else {
+      playSound("correct");
       currentQuestion.value.answers.forEach((_, aIdx) => {
         answers.value[aIdx] = aIdx === index ? "right" : "hide";
       });
@@ -71,6 +73,7 @@ function chooseAnswer(index: number) {
       }, 500);
     }
   } else if (answers.value[index] !== "wrong") {
+    playSound("wrong");
     points.value += 1;
     answers.value[index] = "wrong";
   }
@@ -79,6 +82,7 @@ function chooseAnswer(index: number) {
 function startLevel(levelId: number) {
   if (!section) return;
   useHead({ title: `${section.name} - Level ${levelId}` });
+  playSound("level_start");
   currentLevel.value = generateLevel(section, levelId, 20, 4);
   currentQuestion.value = currentLevel.value.questions[0];
   remainingHints.value = 5;
@@ -94,6 +98,7 @@ function startLevel(levelId: number) {
 }
 
 function finishLevel() {
+  playSound("level_end");
   clearInterval(intervalId);
   finalPoints.value = points.value;
 }
@@ -113,6 +118,7 @@ function showHint() {
   const index = currentQuestion.value.answers.findIndex(
     (a) => a === currentQuestion.value.correct
   );
+  playSound("cheat");
   answers.value[index] = "hint";
   remainingHints.value -= 1;
   points.value += 1;

@@ -1,0 +1,29 @@
+{
+  "name": "cheaty-flashcards",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/fredoka": "^5.0.3",
+    "vue": "^3.2.47",
+    "vue-router": "4"
+  },
+  "devDependencies": {
+    "@iconify-json/feather": "^1.1.4",
+    "@vitejs/plugin-vue": "^4.1.0",
+    "@vue/compiler-sfc": "^3.3.4",
+    "autoprefixer": "^10.4.14",
+    "daisyui": "^3.1.6",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.2",
+    "typescript": "^5.0.2",
+    "unplugin-icons": "^0.16.3",
+    "vite": "^4.3.9",
+    "vue-tsc": "^1.4.2"
+  }
+}

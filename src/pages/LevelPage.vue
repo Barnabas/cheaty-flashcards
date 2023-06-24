@@ -8,7 +8,7 @@ import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
 import { generateLevel, sections } from "../sections";
 import { Level, Question } from "../types";
 
-type AnswerType = "wrong" | "right" | "hint";
+type AnswerType = "wrong" | "right" | "hint" | "hide";
 
 const props = defineProps<{
   section: string;
@@ -36,11 +36,11 @@ onUnmounted(() => clearInterval(intervalId));
 
 function answerButtonClass(idx: number) {
   return {
-    "btn-outline": answers.value[idx] == undefined,
-    "btn-error": answers.value[idx] == "wrong",
-    "btn-info": answers.value[idx] == "hint",
-    "animate-pulse": answers.value[idx] == "hint",
-    "btn-success": answers.value[idx] == "right",
+    "btn-outline": answers.value[idx] === undefined,
+    "btn-error": answers.value[idx] === "wrong",
+    "btn-info": answers.value[idx] === "hint",
+    "btn-success": answers.value[idx] === "right",
+    "opacity-10": answers.value[idx] === "hide",
   };
 }
 
@@ -60,13 +60,15 @@ function chooseAnswer(index: number) {
     if (questionIdx.value + 1 >= currentLevel.value.questions.length) {
       finishLevel();
     } else {
-      answers.value[index] = "right";
+      currentQuestion.value.answers.forEach((_, aIdx) => {
+        answers.value[aIdx] = aIdx === index ? "right" : "hide";
+      });
       points.value -= 1;
       setTimeout(() => {
         questionIdx.value += 1;
         answers.value = {};
         currentQuestion.value = currentLevel.value.questions[questionIdx.value];
-      }, 1500);
+      }, 500);
     }
   } else if (answers.value[index] !== "wrong") {
     points.value += 1;

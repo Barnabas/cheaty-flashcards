@@ -160,7 +160,7 @@ function showHint() {
           Cheat
         </button>
         <div class="flex gap-1" :class="hintClass()">
-          <IconHint class="inline-block" v-for="hint in remainingHints" />
+          <IconHint class="inline-block" v-for="_hint in remainingHints" />
         </div>
       </div>
       <div class="container flex items-center">

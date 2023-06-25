@@ -47,10 +47,12 @@ export function generateLevel(
         factors = [factorA, factorB];
         correct = factorA * factorB;
         [1, 2].forEach((i) => {
-          addWrong((factorA - i) * factorB);
-          addWrong(factorA * (factorB - i));
+          if(factorA - i > 1) addWrong((factorA - i) * factorB);
+          if(factorB - i > 1) addWrong(factorA * (factorB - i));
           addWrong((factorA + i) * factorB);
           addWrong(factorA * (factorB + i));
+          addWrong(correct + i);
+          addWrong(correct - i);
         });
         break;
       case "÷":

@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import IconHint from "~icons/feather/zap";
 import IconFinish from "~icons/feather/award";
-import { ref, onUnmounted } from "vue";
+import IconRestart from "~icons/feather/repeat";
+import IconNext from "~icons/feather/arrow-right";
+import { ref, computed, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
@@ -22,10 +24,17 @@ const questionIndex = ref(0);
 const answerTypes = ref<Record<number, AnswerType>>({});
 const remainingHints = ref(0);
 const currentLevel = ref<Level>({ level: 0, questions: [] });
-const currentQuestion = ref<Question>({ factors: [], correct: 0, answers: [] });
 const finalPoints = ref(0);
 
 let intervalId: number;
+
+const currentQuestion = computed<Question>(() => {
+  return currentLevel.value.questions[questionIndex.value] || { factors: [], correct: 0, answers: [] };
+});
+
+const currentAnswers = computed<number[]>(() => {
+  return currentQuestion.value.answers;
+})
 
 if (section) {
   startLevel(parseInt(props.level));
@@ -57,21 +66,19 @@ function hintClass() {
 function chooseAnswer(index: number) {
   if (
     answerTypes.value[index] !== "right" &&
-    currentQuestion.value.answers[index] === currentQuestion.value.correct
+    currentAnswers.value[index] === currentQuestion.value.correct
   ) {
     if (questionIndex.value + 1 >= currentLevel.value.questions.length) {
       finishLevel();
     } else {
       playSound("correct");
-      currentQuestion.value.answers.forEach((_, index2) => {
+      currentAnswers.value.forEach((_, index2) => {
         answerTypes.value[index2] = index2 === index ? "right" : "hide";
       });
       points.value -= 1;
       setTimeout(() => {
         questionIndex.value += 1;
         answerTypes.value = {};
-        currentQuestion.value =
-          currentLevel.value.questions[questionIndex.value];
       }, 500);
     }
   } else if (answerTypes.value[index] !== "wrong") {
@@ -87,8 +94,7 @@ function startLevel(levelId: number) {
   playSound("level_start");
   clearInterval(intervalId);
 
-  currentLevel.value = generateLevel(section, levelId, 20, 4);
-  currentQuestion.value = currentLevel.value.questions[0];
+  currentLevel.value = generateLevel(section, levelId, 20, 5);
   remainingHints.value = 5;
   points.value = 1;
   finalPoints.value = 0;
@@ -118,7 +124,7 @@ function nextLevel() {
 
 function showHint() {
   if (remainingHints.value < 1) return;
-  const index = currentQuestion.value.answers.findIndex(
+  const index = currentAnswers.value.findIndex(
     (a) => a === currentQuestion.value.correct
   );
   playSound("cheat");
@@ -134,32 +140,36 @@ function showHint() {
 <template>
   <NavBreadcrumbs :section="section" :level="props.level" />
   <section>
-    <div class="mt-16 mx-4 md:w-3/4 md:mx-auto" v-if="finalPoints">
+    <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="finalPoints">
       <div class="shadow-xl rounded-xl p-4 flex gap-8 border-accent border-2">
         <IconFinish class="text-2xl" />
         <div class="flex-1">
-          <p>You finished {{ section.name }} level {{ currentLevel.level }}!</p>
-          <p class="my-4 text-2xl tracking-widest">{{ finalPoints }} points</p>
+          <p>You completed {{ section.name }} level {{ currentLevel.level }}!</p>
+          <p class="my-4">{{ finalPoints }} points</p>
           <div class="flex justify-between">
             <button class="btn" @click="startLevel(currentLevel.level)">
+              <IconRestart />
               Try Again
             </button>
-            <button class="btn" @click="nextLevel()">Next Level</button>
+            <button v-if="currentLevel.level < 8" class="btn btn-primary" @click="nextLevel()">
+              <IconNext />
+              Next Level
+            </button>
           </div>
         </div>
       </div>
     </div>
-    <div v-else class="mt-8 flex flex-col gap-8">
+    <div v-else class="mt-4 flex flex-col gap-4 lg:gap-8">
       <div class="flex gap-8 text-8xl font-bold font-display justify-center">
         <span>{{ currentQuestion.factors[0] }}</span>
         <span>{{ section.operator }}</span>
         <span>{{ currentQuestion.factors[1] }}</span>
       </div>
-      <div class="mb-8 flex gap-4 justify-center">
+      <div class="flex gap-2 md:gap-4 lg:gap-8 justify-center">
         <button
           class="btn btn-lg btn-circle"
           :class="answerButtonClass(idx)"
-          v-for="(answer, idx) in currentQuestion.answers"
+          v-for="(answer, idx) in currentAnswers"
           @click="chooseAnswer(idx)"
         >
           {{ answer }}
@@ -168,7 +178,7 @@ function showHint() {
 
       <div class="container flex justify-between">
         <button
-          class="btn btn-sm btn-accent tracking-widest"
+          class="btn btn-accent tracking-widest"
           @click="showHint()"
           :disabled="remainingHints < 1"
         >

@@ -17,3 +17,12 @@ export type Section = {
   operator: Operator;
 };
 
+export type AnswerType = "wrong" | "right" | "hint" | "hide";
+
+export type LevelSummary = {
+  levelTime: string,
+  questionsCorrect: number,
+  percentCorrect: string,
+  points: number,
+  questionAverageTime: string
+}

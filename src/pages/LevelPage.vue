@@ -8,10 +8,9 @@ import { useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
 import { generateLevel, sections } from "../sections";
-import { Level, Question } from "../types";
+import { Level, Question, AnswerType, LevelSummary } from "../types";
 import { playSound } from "../sounds";
-
-type AnswerType = "wrong" | "right" | "hint" | "hide";
+import { LevelMetrics } from "../utils";
 
 const props = defineProps<{
   section: string;
@@ -24,17 +23,24 @@ const questionIndex = ref(0);
 const answerTypes = ref<Record<number, AnswerType>>({});
 const remainingHints = ref(0);
 const currentLevel = ref<Level>({ level: 0, questions: [] });
-const finalPoints = ref(0);
+const summary = ref<LevelSummary | null>(null);
+let metrics = new LevelMetrics();
 
 let intervalId: number;
 
 const currentQuestion = computed<Question>(() => {
-  return currentLevel.value.questions[questionIndex.value] || { factors: [], correct: 0, answers: [] };
+  return (
+    currentLevel.value.questions[questionIndex.value] || {
+      factors: [],
+      correct: 0,
+      answers: [],
+    }
+  );
 });
 
 const currentAnswers = computed<number[]>(() => {
   return currentQuestion.value.answers;
-})
+});
 
 if (section) {
   startLevel(parseInt(props.level));
@@ -77,14 +83,17 @@ function chooseAnswer(index: number) {
       });
       points.value -= 1;
       setTimeout(() => {
+        metrics.beginQuestion();
         questionIndex.value += 1;
         answerTypes.value = {};
       }, 500);
     }
+    metrics.answerQuestion("right");
   } else if (answerTypes.value[index] !== "wrong") {
     playSound("wrong");
     points.value += 1;
     answerTypes.value[index] = "wrong";
+    metrics.answerQuestion("wrong");
   }
 }
 
@@ -94,10 +103,13 @@ function startLevel(levelId: number) {
   playSound("level_start");
   clearInterval(intervalId);
 
-  currentLevel.value = generateLevel(section, levelId, 20, 5);
+  metrics = new LevelMetrics();
+  metrics.beginQuestion();
+
+  currentLevel.value = generateLevel(section, levelId, 4, 5);
   remainingHints.value = 5;
   points.value = 1;
-  finalPoints.value = 0;
+  summary.value = null;
   questionIndex.value = 0;
   answerTypes.value = {};
 
@@ -109,7 +121,7 @@ function startLevel(levelId: number) {
 function finishLevel() {
   playSound("level_end");
   clearInterval(intervalId);
-  finalPoints.value = points.value;
+  summary.value = metrics.endLevel(points.value);
 }
 
 function nextLevel() {
@@ -140,22 +152,50 @@ function showHint() {
 <template>
   <NavBreadcrumbs :section="section" :level="props.level" />
   <section>
-    <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="finalPoints">
-      <div class="shadow-xl rounded-xl p-4 flex gap-8 border-accent border-2">
-        <IconFinish class="text-2xl" />
-        <div class="flex-1">
-          <p>You completed {{ section.name }} level {{ currentLevel.level }}!</p>
-          <p class="my-4">{{ finalPoints }} points</p>
-          <div class="flex justify-between">
-            <button class="btn" @click="startLevel(currentLevel.level)">
-              <IconRestart />
-              Try Again
-            </button>
-            <button v-if="currentLevel.level < 8" class="btn btn-primary" @click="nextLevel()">
-              <IconNext />
-              Next Level
-            </button>
+    <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="summary">
+      <div class="shadow-xl rounded-xl p-4 border-accent border-2">
+        <div class="flex">
+          <IconFinish class="h-8 w-8" />
+          <div class="text-xl text-center flex-1">
+            {{ section.name }} level {{ currentLevel.level }} complete!
           </div>
+          <IconFinish class="h-8 w-8" />
+        </div>
+        <table class="table table-fixed">
+          <tbody>
+            <tr>
+              <td class="text-right">Points:</td>
+              <td>{{ summary.points }}</td>
+            </tr>
+            <tr>
+              <td class="text-right">Time:</td>
+              <td>{{ summary.levelTime }}</td>
+            </tr>
+            <tr>
+              <td class="text-right">Correct answers:</td>
+              <td>
+                {{ summary.questionsCorrect }} ({{ summary.percentCorrect }})
+              </td>
+            </tr>
+            <tr>
+              <td class="text-right">Average time/question:</td>
+              <td>{{ summary.questionAverageTime }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="flex justify-between">
+          <button class="btn" @click="startLevel(currentLevel.level)">
+            <IconRestart />
+            Try Again
+          </button>
+          <button
+            v-if="currentLevel.level < 8"
+            class="btn btn-primary"
+            @click="nextLevel()"
+          >
+            <IconNext />
+            Next Level
+          </button>
         </div>
       </div>
     </div>

@@ -106,7 +106,7 @@ function startLevel(levelId: number) {
   metrics = new LevelMetrics();
   metrics.beginQuestion();
 
-  currentLevel.value = generateLevel(section, levelId, 4, 5);
+  currentLevel.value = generateLevel(section, levelId, 20, 5);
   remainingHints.value = 5;
   points.value = 1;
   summary.value = null;

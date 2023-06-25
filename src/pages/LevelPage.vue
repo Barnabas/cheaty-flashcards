@@ -18,8 +18,8 @@ const props = defineProps<{
 const router = useRouter();
 const section = sections.find((s) => s.id === props.section);
 const points = ref(0);
-const questionIdx = ref(0);
-const answers = ref<Record<number, AnswerType>>({});
+const questionIndex = ref(0);
+const answerTypes = ref<Record<number, AnswerType>>({});
 const remainingHints = ref(0);
 const currentLevel = ref<Level>({ level: 0, questions: [] });
 const currentQuestion = ref<Question>({ factors: [], correct: 0, answers: [] });
@@ -35,13 +35,14 @@ if (section) {
 
 onUnmounted(() => clearInterval(intervalId));
 
-function answerButtonClass(idx: number) {
+function answerButtonClass(index: number) {
+  const answerType = answerTypes.value[index];
   return {
-    "btn-outline": answers.value[idx] === undefined,
-    "btn-error": answers.value[idx] === "wrong",
-    "btn-info": answers.value[idx] === "hint",
-    "btn-success": answers.value[idx] === "right",
-    "opacity-10": answers.value[idx] === "hide",
+    "btn-outline": answerType === undefined,
+    "btn-error": answerType === "wrong",
+    "btn-info": answerType === "hint",
+    "btn-success": answerType === "right",
+    "opacity-10": answerType === "hide",
   };
 }
 
@@ -55,27 +56,28 @@ function hintClass() {
 
 function chooseAnswer(index: number) {
   if (
-    answers.value[index] !== "right" &&
+    answerTypes.value[index] !== "right" &&
     currentQuestion.value.answers[index] === currentQuestion.value.correct
   ) {
-    if (questionIdx.value + 1 >= currentLevel.value.questions.length) {
+    if (questionIndex.value + 1 >= currentLevel.value.questions.length) {
       finishLevel();
     } else {
       playSound("correct");
-      currentQuestion.value.answers.forEach((_, aIdx) => {
-        answers.value[aIdx] = aIdx === index ? "right" : "hide";
+      currentQuestion.value.answers.forEach((_, index2) => {
+        answerTypes.value[index2] = index2 === index ? "right" : "hide";
       });
       points.value -= 1;
       setTimeout(() => {
-        questionIdx.value += 1;
-        answers.value = {};
-        currentQuestion.value = currentLevel.value.questions[questionIdx.value];
+        questionIndex.value += 1;
+        answerTypes.value = {};
+        currentQuestion.value =
+          currentLevel.value.questions[questionIndex.value];
       }, 500);
     }
-  } else if (answers.value[index] !== "wrong") {
+  } else if (answerTypes.value[index] !== "wrong") {
     playSound("wrong");
     points.value += 1;
-    answers.value[index] = "wrong";
+    answerTypes.value[index] = "wrong";
   }
 }
 
@@ -83,15 +85,16 @@ function startLevel(levelId: number) {
   if (!section) return;
   useHead({ title: `${section.name} - Level ${levelId}` });
   playSound("level_start");
+  clearInterval(intervalId);
+
   currentLevel.value = generateLevel(section, levelId, 20, 4);
   currentQuestion.value = currentLevel.value.questions[0];
   remainingHints.value = 5;
   points.value = 1;
   finalPoints.value = 0;
-  questionIdx.value = 0;
-  answers.value = {};
+  questionIndex.value = 0;
+  answerTypes.value = {};
 
-  clearInterval(intervalId);
   intervalId = setInterval(() => {
     points.value += 1;
   }, 2000);
@@ -119,12 +122,12 @@ function showHint() {
     (a) => a === currentQuestion.value.correct
   );
   playSound("cheat");
-  answers.value[index] = "hint";
+  answerTypes.value[index] = "hint";
   remainingHints.value -= 1;
   points.value += 1;
 
   setTimeout(() => {
-    if (answers.value[index] === "hint") delete answers.value[index];
+    if (answerTypes.value[index] === "hint") delete answerTypes.value[index];
   }, 1000);
 }
 </script>
@@ -179,11 +182,11 @@ function showHint() {
         <div class="w-1/4">{{ points }} points</div>
         <progress
           class="w-1/2 progress progress-primary"
-          :value="questionIdx + 1"
+          :value="questionIndex + 1"
           :max="currentLevel.questions.length"
         />
         <div class="w-1/4 text-right">
-          {{ questionIdx + 1 }} / {{ currentLevel.questions.length }}
+          {{ questionIndex + 1 }} / {{ currentLevel.questions.length }}
         </div>
       </div>
     </div>

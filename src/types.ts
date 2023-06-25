@@ -20,9 +20,11 @@ export type Section = {
 export type AnswerType = "wrong" | "right" | "hint" | "hide";
 
 export type LevelSummary = {
-  levelTime: string,
-  questionsCorrect: number,
-  percentCorrect: string,
-  points: number,
-  questionAverageTime: string
-}
+  levelTime: number;
+  questionsCorrect: number;
+  percentCorrect: number;
+  points: number;
+  questionTimeAverage: number;
+  questionTimeMax: number;
+  message: string;
+};

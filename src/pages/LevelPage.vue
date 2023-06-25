@@ -10,7 +10,7 @@ import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
 import { generateLevel, sections } from "../sections";
 import { Level, Question, AnswerType, LevelSummary } from "../types";
 import { playSound } from "../sounds";
-import { LevelMetrics } from "../utils";
+import { LevelMetrics, formatPercent, formatTime } from "../utils";
 
 const props = defineProps<{
   section: string;
@@ -74,6 +74,7 @@ function chooseAnswer(index: number) {
     answerTypes.value[index] !== "right" &&
     currentAnswers.value[index] === currentQuestion.value.correct
   ) {
+    metrics.answerQuestion("right");
     if (questionIndex.value + 1 >= currentLevel.value.questions.length) {
       finishLevel();
     } else {
@@ -88,12 +89,11 @@ function chooseAnswer(index: number) {
         answerTypes.value = {};
       }, 500);
     }
-    metrics.answerQuestion("right");
   } else if (answerTypes.value[index] !== "wrong") {
+    metrics.answerQuestion("wrong");
     playSound("wrong");
     points.value += 1;
     answerTypes.value[index] = "wrong";
-    metrics.answerQuestion("wrong");
   }
 }
 
@@ -153,36 +153,40 @@ function showHint() {
   <NavBreadcrumbs :section="section" :level="props.level" />
   <section>
     <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="summary">
-      <div class="shadow-xl rounded-xl p-4 border-accent border-2">
-        <div class="flex">
+      <div class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2">
+        <div class="flex bg-secondary -mt-4 -mx-4 p-2">
           <IconFinish class="h-8 w-8" />
-          <div class="text-xl text-center flex-1">
-            {{ section.name }} level {{ currentLevel.level }} complete!
+          <div class="font-display font-medium text-center text-2xl flex-1">
+            {{ section.name }} Level {{ currentLevel.level }} Complete
           </div>
           <IconFinish class="h-8 w-8" />
         </div>
-        <table class="table table-fixed">
+        <table class="table table-lg table-fixed">
           <tbody>
             <tr>
-              <td class="text-right">Points:</td>
+              <td class="text-right font-bold">Points:</td>
               <td>{{ summary.points }}</td>
             </tr>
             <tr>
-              <td class="text-right">Time:</td>
-              <td>{{ summary.levelTime }}</td>
-            </tr>
-            <tr>
-              <td class="text-right">Correct answers:</td>
+              <td class="text-right font-bold">Score:</td>
               <td>
-                {{ summary.questionsCorrect }} ({{ summary.percentCorrect }})
+                {{ formatPercent(summary.percentCorrect) }}
               </td>
             </tr>
             <tr>
-              <td class="text-right">Average time/question:</td>
-              <td>{{ summary.questionAverageTime }}</td>
+              <td class="text-right font-bold">Level Time:</td>
+              <td>{{ formatTime(summary.levelTime) }}</td>
+            </tr>
+            <tr>
+              <td class="text-right font-bold">Time/question:</td>
+              <td>
+                {{ formatTime(summary.questionTimeAverage) }} average,
+                {{ formatTime(summary.questionTimeMax) }} max
+              </td>
             </tr>
           </tbody>
         </table>
+        <div class="p-2 text-center">{{ summary.message }}</div>
         <div class="flex justify-between">
           <button class="btn" @click="startLevel(currentLevel.level)">
             <IconRestart />

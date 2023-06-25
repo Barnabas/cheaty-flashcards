@@ -7,17 +7,17 @@ export function shuffle<T>(array: T[]): T[] {
     .map(({ value }) => value);
 }
 
-function formatPercent(value: number) {
-  return (value * 100).toFixed(1) + '%'
+export function formatPercent(value: number) {
+  return (value * 100).toFixed(1) + "%";
 }
 
-function formatTime(ms: number) {
-  let sec = Math.round(ms / 1000);
-  if(sec < 60) {
-    return `${sec}s`;
+export function formatTime(ms: number) {
+  let sec = ms / 1000;
+  if (sec < 60) {
+    return `${sec.toFixed(1)}s`;
   } else {
     const min = Math.floor(sec / 60);
-    sec = sec % 60;
+    sec = Math.round(sec) % 60;
     return `${min}m ${sec}s`;
   }
 }
@@ -27,7 +27,8 @@ export class LevelMetrics {
   questionsCorrect: number = 0;
   levelStart: number = Date.now();
   questionStart: number = 0;
-  questionTimes: number[] = [];
+  questionTimeTotal: number = 0;
+  questionTimeMax: number = 0;
   isAnswerCorrect: boolean = true;
 
   beginQuestion() {
@@ -39,21 +40,40 @@ export class LevelMetrics {
   answerQuestion(answerType: AnswerType) {
     if (this.isAnswerCorrect && answerType === "right") {
       this.questionsCorrect += 1;
-      this.questionTimes.push(Date.now() - this.questionStart);
+      const time = Date.now() - this.questionStart;
+      this.questionTimeTotal += time;
+      if (time > this.questionTimeMax) this.questionTimeMax = time;
     } else {
       this.isAnswerCorrect = false;
     }
   }
 
   endLevel(points: number): LevelSummary {
-    const { questionsCorrect, questionsTotal } = this;
-    const totalTime = this.questionTimes.reduce((prev, curr) => prev + curr);
-    return {
-      levelTime: formatTime(Date.now() - this.levelStart),
+    const {
       questionsCorrect,
-      percentCorrect: formatPercent(questionsCorrect / questionsTotal),
+      questionsTotal,
+      questionTimeTotal,
+      questionTimeMax,
+    } = this;
+    const percentCorrect = questionsCorrect / questionsTotal;
+
+    let message: string = "😤 Don't give up!";
+    if (percentCorrect > 0.4) message = "🤓 Go again, I believe in you.";
+    if (percentCorrect > 0.5) message = "🙂 Good job, keep going.";
+    if (percentCorrect > 0.6) message = "👍 Very nice. You got this!";
+    if (percentCorrect > 0.7) message = "😎 Well done, keep it up!";
+    if (percentCorrect > 0.8) message = "😄 Fantastic! Woo hoo!";
+    if (percentCorrect > 0.9) message = "🥳 Amazing! You're killing it.";
+    if (percentCorrect > 0.99) message = "🤩 Wow! Perfect score!";
+
+    return {
+      levelTime: Date.now() - this.levelStart,
+      questionsCorrect,
+      percentCorrect,
       points,
-      questionAverageTime: formatTime(totalTime / questionsTotal)
+      questionTimeAverage: questionTimeTotal / questionsTotal,
+      questionTimeMax,
+      message,
     };
   }
 }

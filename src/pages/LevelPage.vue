@@ -22,7 +22,7 @@ const points = ref(0);
 const questionIndex = ref(0);
 const answerTypes = ref<Record<number, AnswerType>>({});
 const remainingHints = ref(0);
-const currentLevel = ref<Level>({ level: 0, questions: [] });
+const currentLevel = ref<Level>({ name: "?", level: 0, questions: [] });
 const summary = ref<LevelSummary | null>(null);
 let metrics = new LevelMetrics();
 
@@ -106,7 +106,11 @@ function startLevel(levelId: number) {
   metrics = new LevelMetrics();
   metrics.beginQuestion();
 
-  currentLevel.value = generateLevel(section, levelId, 20, 5);
+  currentLevel.value = generateLevel(section, {
+    level: levelId,
+    questionCount: 10,
+    answerCount: 5,
+  });
   remainingHints.value = 5;
   points.value = 1;
   summary.value = null;
@@ -153,7 +157,9 @@ function showHint() {
   <NavBreadcrumbs :section="section" :level="props.level" />
   <section>
     <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="summary">
-      <div class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2">
+      <div
+        class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2"
+      >
         <div class="flex bg-secondary -mt-4 -mx-4 p-2">
           <IconFinish class="h-8 w-8" />
           <div class="font-display font-medium text-center text-2xl flex-1">
@@ -233,15 +239,12 @@ function showHint() {
         </div>
       </div>
       <div class="container flex items-center">
-        <div class="w-1/4">{{ points }} points</div>
+        <div class="w-1/3">{{ points }} points</div>
         <progress
-          class="w-1/2 progress progress-primary"
+          class="w-2/3 progress progress-primary"
           :value="questionIndex + 1"
           :max="currentLevel.questions.length"
         />
-        <div class="w-1/4 text-right">
-          {{ questionIndex + 1 }} / {{ currentLevel.questions.length }}
-        </div>
       </div>
     </div>
   </section>

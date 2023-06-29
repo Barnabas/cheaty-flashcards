@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import { Section } from '../types';
+import { getLevelName } from "../sections";
+import { Section } from "../types";
 
 const props = defineProps<{
   section: Section;
 }>();
-
 </script>
 <template>
   <div class="flex flex-wrap gap-4">
@@ -14,7 +14,7 @@ const props = defineProps<{
       :to="'/' + props.section.id + '/' + level"
       :key="level"
     >
-      Level {{ level }}
+      {{ getLevelName(props.section, level) }}
     </RouterLink>
   </div>
 </template>

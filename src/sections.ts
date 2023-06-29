@@ -24,16 +24,27 @@ const sections: Section[] = [
   },
 ];
 
+type GenerateOptions = {
+  level: number;
+  questionCount: number;
+  answerCount: number;
+};
+
+export function getLevelName(section?: Section, level?: number) {
+  if (!section || !level) return "";
+  return [section.operator, level + 1].join(" ");
+}
+
 export function generateLevel(
   section: Section,
-  level: number,
-  size: number,
-  answerCount: number = 4
+  options: GenerateOptions
 ): Level {
+  const factorA = options.level + 1;
   const questions: Question[] = [];
-  for (let question = 1; question <= size; question++) {
-    let factorA = level + 1;
-    let factorB = (question % 8) + 2;
+  const name = getLevelName(section, options.level);
+
+  for (let question = 1; question <= options.questionCount; question++) {
+    const factorB = (question % 8) + 2;
     let correct: number = -1;
     let factors: number[] = [];
     let wrong = new Set<number>();
@@ -47,8 +58,8 @@ export function generateLevel(
         factors = [factorA, factorB];
         correct = factorA * factorB;
         [1, 2].forEach((i) => {
-          if(factorA - i > 1) addWrong((factorA - i) * factorB);
-          if(factorB - i > 1) addWrong(factorA * (factorB - i));
+          if (factorA - i > 1) addWrong((factorA - i) * factorB);
+          if (factorB - i > 1) addWrong(factorA * (factorB - i));
           addWrong((factorA + i) * factorB);
           addWrong(factorA * (factorB + i));
           addWrong(correct + i);
@@ -81,14 +92,14 @@ export function generateLevel(
         break;
     }
 
-    const wrongAnswers = shuffle([...wrong]).slice(0, answerCount - 1);
+    const wrongAnswers = shuffle([...wrong]).slice(0, options.answerCount - 1);
     questions.push({
       factors,
       correct,
       answers: shuffle([correct, ...wrongAnswers]),
     });
   }
-  return { level, questions: shuffle(questions) };
+  return { name, level: options.level, questions: shuffle(questions) };
 }
 
 export { sections };

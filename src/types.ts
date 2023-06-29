@@ -8,6 +8,7 @@ export type Question = {
 
 export type Level = {
   level: number;
+  name: string;
   questions: Question[];
 };
 

@@ -4,6 +4,7 @@ import CorrectPath from "./assets/sounds/correct.mp3";
 import LevelEndPath from "./assets/sounds/level_end.mp3";
 import LevelStartPath from "./assets/sounds/level_start.mp3";
 import WrongPath from "./assets/sounds/wrong.mp3";
+import { useSettingsStore } from "./stores/settings";
 
 type SoundNames = "cheat" | "correct" | "level_end" | "level_start" | "wrong";
 
@@ -16,5 +17,6 @@ const sounds: Record<SoundNames, Howl> = {
 };
 
 export function playSound(name: SoundNames) {
+  if (!useSettingsStore().soundEnabled) return;
   sounds[name].play();
 }

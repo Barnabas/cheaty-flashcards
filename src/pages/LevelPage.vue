@@ -11,6 +11,7 @@ import { generateLevel, sections } from "../sections";
 import { Level, Question, AnswerType, LevelSummary } from "../types";
 import { playSound } from "../sounds";
 import { LevelMetrics, formatPercent, formatTime } from "../utils";
+import { useProgressStore } from "../stores/progress";
 
 const props = defineProps<{
   section: string;
@@ -18,12 +19,14 @@ const props = defineProps<{
 }>();
 const router = useRouter();
 const section = sections.find((s) => s.id === props.section);
+const progress = useProgressStore();
 const points = ref(0);
 const questionIndex = ref(0);
 const answerTypes = ref<Record<number, AnswerType>>({});
 const remainingHints = ref(0);
 const currentLevel = ref<Level>({ name: "?", level: 0, questions: [] });
 const summary = ref<LevelSummary | null>(null);
+const isNewBest = ref(false);
 let metrics = new LevelMetrics();
 
 let intervalId: number;
@@ -40,6 +43,10 @@ const currentQuestion = computed<Question>(() => {
 
 const currentAnswers = computed<number[]>(() => {
   return currentQuestion.value.answers;
+});
+
+const personalBest = computed(() => {
+  return section ? progress.getPersonalBest(section.id, currentLevel.value.level) : undefined;
 });
 
 if (section) {
@@ -126,6 +133,9 @@ function finishLevel() {
   playSound("level_end");
   clearInterval(intervalId);
   summary.value = metrics.endLevel(points.value);
+  isNewBest.value = section
+    ? progress.recordLevelResult(section.id, currentLevel.value.level, summary.value)
+    : false;
 }
 
 function nextLevel() {
@@ -173,6 +183,13 @@ function showHint() {
               <td class="text-right font-bold">Score:</td>
               <td>
                 {{ formatPercent(summary.percentCorrect) }}
+              </td>
+            </tr>
+            <tr v-if="personalBest">
+              <td class="text-right font-bold">Personal Best:</td>
+              <td>
+                {{ formatPercent(personalBest.percentCorrect) }}
+                <span v-if="isNewBest" class="badge badge-success ml-2">New!</span>
               </td>
             </tr>
             <tr>

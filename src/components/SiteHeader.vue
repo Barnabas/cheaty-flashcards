@@ -1,9 +1,13 @@
 <script lang="ts" setup>
 import IconLogo from "~icons/feather/zap";
 import IconHelp from "~icons/feather/help-circle";
+import IconSoundOn from "~icons/feather/volume-2";
+import IconSoundOff from "~icons/feather/volume-x";
 import { ref } from "vue";
+import { useSettingsStore } from "../stores/settings";
 
 const helpModal = ref();
+const settings = useSettingsStore();
 </script>
 <template>
   <header>
@@ -15,6 +19,14 @@ const helpModal = ref();
         </RouterLink>
       </div>
       <div class="flex-none">
+        <button
+          @click="settings.soundEnabled = !settings.soundEnabled"
+          class="btn btn-ghost"
+          :aria-label="settings.soundEnabled ? 'Mute sound' : 'Unmute sound'"
+        >
+          <IconSoundOn v-if="settings.soundEnabled" class="w-6 h-6" />
+          <IconSoundOff v-else class="w-6 h-6" />
+        </button>
         <button @click="helpModal.showModal()" class="btn btn-ghost">
           <IconHelp class="w-6 h-6" />
         </button>

@@ -7,13 +7,15 @@
     "dev": "vp dev --host",
     "build": "vue-tsc && vp build",
     "preview": "vp preview",
-    "test": "vp test",
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vp test",
     "check": "vp check"
   },
   "dependencies": {
     "@fontsource-variable/fredoka": "^5.2.10",
     "@unhead/vue": "^3.1.8",
     "howler": "^2.2.4",
+    "pinia": "^4.0.2",
+    "pinia-plugin-persistedstate": "^4.7.1",
     "vue": "^3.5.40",
     "vue-router": "^5.2.0"
   },
@@ -24,6 +26,7 @@
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/compiler-sfc": "^3.5.40",
     "daisyui": "^5.6.18",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "unplugin-icons": "^23.0.1",

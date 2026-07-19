@@ -49,12 +49,7 @@ export class LevelMetrics {
   }
 
   endLevel(points: number): LevelSummary {
-    const {
-      questionsCorrect,
-      questionsTotal,
-      questionTimeTotal,
-      questionTimeMax,
-    } = this;
+    const { questionsCorrect, questionsTotal, questionTimeTotal, questionTimeMax } = this;
     const percentCorrect = questionsCorrect / questionsTotal;
 
     let message: string = "😤 Don't give up!";

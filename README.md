@@ -12,7 +12,9 @@ layer. Progress and scores exist only for the duration of a level.
 ## Tech stack
 
 - **Vue 3** (`<script setup>` SFCs) + **TypeScript**
-- **Vite 8** as the build tool
+- **Vite+** (`vite-plus`) as the toolchain — wraps Vite 8, runs tests via its
+  bundled Vitest (`vite-plus/test`), and provides `vp check` for
+  Oxc-based lint/format/type-check
 - **vue-router 5** with hash history, for `/section` and `/section/level` routes
 - **Tailwind CSS 4** + **daisyUI 5**, configured entirely via CSS (`src/style.css`)
   using `@import`/`@plugin`/`@theme` — there is no `tailwind.config.js` or
@@ -55,9 +57,14 @@ pnpm install
 pnpm dev       # start Vite dev server
 pnpm build     # type-check (vue-tsc) + production build to dist/
 pnpm preview   # preview the production build
+pnpm test      # run the Vitest suite via `vp test`
+pnpm check     # lint + format + type-check via `vp check`
 ```
 
-This repo uses **pnpm** (see `pnpm-workspace.yaml`). There's no test suite.
+This repo uses **pnpm** (see `pnpm-workspace.yaml`) with **Vite+** as the
+toolchain runner — see `AGENTS.md` for a summary, or
+`node_modules/vite-plus/docs` for the full reference. Tests live alongside
+the source files they cover (`*.test.ts`), imported from `vite-plus/test`.
 
 ## Notes for future maintainers / AI agents
 

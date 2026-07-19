@@ -1,12 +1,14 @@
 {
   "name": "cheaty-flashcards",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
-    "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "dev": "vp dev --host",
+    "build": "vue-tsc && vp build",
+    "preview": "vp preview",
+    "test": "vp test",
+    "check": "vp check"
   },
   "dependencies": {
     "@fontsource-variable/fredoka": "^5.2.10",
@@ -25,7 +27,15 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "unplugin-icons": "^23.0.1",
-    "vite": "^8.1.5",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
     "vue-tsc": "^3.3.7"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.15.0",
+      "onFail": "download"
+    }
   }
 }

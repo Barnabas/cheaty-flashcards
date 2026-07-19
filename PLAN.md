@@ -97,6 +97,7 @@ file if further archaeology is needed).
 ## Library changes
 
 **Add:**
+
 - `vite-plus` (replaces `vite` + adds `vp check`/`vp test`/`vp run`/`vp pack`
   toolchain; re-exports Vitest 4.x under `vite-plus/test`)
 - `pinia` + `pinia-plugin-persistedstate`
@@ -111,21 +112,53 @@ it as the real footer in the About/Credits phase.
 
 ## Phases
 
-### Phase 0 — Vite+ & testing foundation
-- [ ] Confirm current versions satisfy `vp migrate` prerequisites (Vite 8+ ✅
+### Phase 0 — Vite+ & testing foundation — done (2026-07-19)
+
+- [x] Confirm current versions satisfy `vp migrate` prerequisites (Vite 8+ ✅
       already on `^8.1.5`; Vitest 4.1+ — not installed yet, so likely a
       fresh `vp install` rather than a true migrate for the test side)
-- [ ] Run `vp migrate --no-interactive`, review the merged `vite.config.ts`
+      — confirmed via `pnpm --package=vite-plus dlx vp migrate --help`;
+      `vite-plus@0.2.5` (bundling Vitest 4.1.10) was the current release.
+- [x] Run `vp migrate --no-interactive`, review the merged `vite.config.ts`
       (tsdown/vitest/lint-staged blocks), verify Vue plugin + Tailwind vite
       plugin + unplugin-icons still work post-migration
-- [ ] Wire up `vp check` (Oxc-based lint/format/typecheck) and confirm it
+      — ran with `--no-hooks` first (hooks decided separately below).
+      `vite.config.ts` gained `fmt`/`lint` blocks and wraps the existing
+      `tailwindcss()`/`vue()`/`Icons()` plugins in `lazyPlugins(() => [...])`
+      (Vite+'s convention so `vp check`/`vp lint`/`vp fmt` don't pay Vite's
+      dev/build plugin cost). `package.json` moved `vite`/`vite-plus` to a
+      pnpm `catalog:` entry (`pnpm-workspace.yaml`) aliasing `vite` to
+      `@voidzero-dev/vite-plus-core`. Also generated `AGENTS.md` (agent
+      instructions for the `vp` CLI) and `src/env.d.ts` (Vue SFC shim).
+      No behavior changes to app code.
+- [x] Wire up `vp check` (Oxc-based lint/format/typecheck) and confirm it
       plays reasonably with the existing `tsconfig.json` strict settings
-- [ ] Get `vp test` running with a trivial smoke test
-- [ ] Update `package.json` scripts and README dev instructions accordingly
-- [ ] Decide on commit hooks (`vp migrate` can set these up — evaluate vs.
+      — passes clean (`vp check --fix` only reformatted whitespace/line
+      width, no logic touched). No `tsconfig.json` changes were needed
+      beyond what `vp migrate` itself applied.
+- [x] Get `vp test` running with a trivial smoke test
+      — added `src/sections.test.ts` (real assertions against the pure
+      `getLevelName()` helper, not a placeholder). **Gotcha**: running via
+      `pnpm dlx vite-plus` spawns an isolated copy of vitest, which
+      conflicts with the `vitest` re-exported from `vite-plus/test` inside
+      the test file (`Cannot read properties of undefined (reading
+'config')`). Fix: always invoke the project's own
+      `./node_modules/.bin/vp`, not `dlx`, once `vite-plus` is an installed
+      dependency.
+- [x] Update `package.json` scripts and README dev instructions accordingly
+      — added `test`/`check` scripts (`vp test`/`vp check`); README tech
+      stack + Development section updated to mention Vite+/Vitest.
+- [x] Decide on commit hooks (`vp migrate` can set these up — evaluate vs.
       keeping it manual)
+      — enabled. Ran `vp config --no-agent` (hooks only, agent files
+      already current), which points `core.hooksPath` at `.vite-hooks/_`
+      and adds a `staged: { "*": "vp check --fix" }` block to
+      `vite.config.ts`. Rationale: solo hobby project, `vp check` runs in
+      well under a second, so auto-fixing staged files on commit is free
+      insurance with no team-coordination downside.
 
 ### Phase 1 — State & persistence foundation
+
 - [ ] Introduce Pinia + `pinia-plugin-persistedstate`
 - [ ] Define `localStorage` schema: player profile/settings, mastery data,
       streaks/badges, personal bests
@@ -135,6 +168,7 @@ it as the real footer in the About/Credits phase.
       schema itself if it changes later)
 
 ### Phase 2 — Adaptive mastery engine
+
 - [ ] Define fact-family grouping for each operator pair (+/−, ×/÷)
 - [ ] Implement Leitner-style mastery stages per family
 - [ ] Replace `generateLevel()`'s level-number-driven difficulty with
@@ -146,6 +180,7 @@ it as the real footer in the About/Credits phase.
       distribution sanity checks, focus-filter behavior
 
 ### Phase 3 — Cheat mechanic rework
+
 - [ ] Tiered hints (cheap: eliminate 2 wrong answers; expensive: reveal
       answer)
 - [ ] Cheat-free streak tracking + visible reward (badge/animation/sound)
@@ -155,6 +190,7 @@ it as the real footer in the About/Credits phase.
       resets/rewards
 
 ### Phase 4 — Progress UI
+
 - [ ] Home page dashboard: per-operation mastery view (grid/heatmap of fact
       families), personal bests, streaks — replaces "pick a level number"
       flow
@@ -163,6 +199,7 @@ it as the real footer in the About/Credits phase.
 - [ ] Component tests for dashboard rendering against store fixtures
 
 ### Phase 5 — Routing & deployment migration
+
 - [ ] Switch `createWebHashHistory` → `createWebHistory`
 - [ ] Cloudflare Workers static-assets config (wrangler config, SPA fallback
       / `not_found_handling`) replacing the ad hoc Pages-dashboard flow
@@ -170,6 +207,7 @@ it as the real footer in the About/Credits phase.
 - [ ] Update README deployment instructions
 
 ### Phase 6 — PWA
+
 - [ ] `vite-plugin-pwa` with manifest (icons, theme colors) + offline
       precaching
 - [ ] Verify installability and offline play on a real device
@@ -177,6 +215,7 @@ it as the real footer in the About/Credits phase.
       headers, service worker scope)
 
 ### Phase 7 — Visual polish
+
 - [ ] New/custom daisyUI theme, fix dead `light`/`dark` theme selection (or
       commit to a single custom theme and drop the unused ones)
 - [ ] `canvas-confetti` for celebration moments (level milestones, cheat-free
@@ -184,6 +223,7 @@ it as the real footer in the About/Credits phase.
 - [ ] Expanded sound cues for new events (streaks, mastery achieved, badges)
 
 ### Phase 8 — About/Credits page
+
 - [ ] Real `/about` route (not a modal) linking to barnabas.me
 - [ ] Credits: Vue, Tailwind, daisyUI, Fredoka (Fontsource), Feather icons,
       Howler, sound asset sources (check licenses), Vite+, niece

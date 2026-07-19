@@ -35,10 +35,7 @@ export function getLevelName(section?: Section, level?: number) {
   return [section.operator, level + 1].join(" ");
 }
 
-export function generateLevel(
-  section: Section,
-  options: GenerateOptions
-): Level {
+export function generateLevel(section: Section, options: GenerateOptions): Level {
   const factorA = options.level + 1;
   const questions: Question[] = [];
   const name = getLevelName(section, options.level);

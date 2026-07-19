@@ -140,9 +140,7 @@ function nextLevel() {
 
 function showHint() {
   if (remainingHints.value < 1) return;
-  const index = currentAnswers.value.findIndex(
-    (a) => a === currentQuestion.value.correct
-  );
+  const index = currentAnswers.value.findIndex((a) => a === currentQuestion.value.correct);
   playSound("cheat");
   answerTypes.value[index] = "hint";
   remainingHints.value -= 1;
@@ -157,9 +155,7 @@ function showHint() {
   <NavBreadcrumbs :section="section" :level="props.level" />
   <section v-if="section">
     <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="summary">
-      <div
-        class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2"
-      >
+      <div class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2">
         <div class="flex bg-secondary -mt-4 -mx-4 p-2">
           <IconFinish class="h-8 w-8" />
           <div class="font-display font-medium text-center text-2xl flex-1">
@@ -198,11 +194,7 @@ function showHint() {
             <IconRestart />
             Try Again
           </button>
-          <button
-            v-if="currentLevel.level < 8"
-            class="btn btn-primary"
-            @click="nextLevel()"
-          >
+          <button v-if="currentLevel.level < 8" class="btn btn-primary" @click="nextLevel()">
             <IconNext />
             Next Level
           </button>

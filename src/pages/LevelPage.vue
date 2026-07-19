@@ -155,7 +155,7 @@ function showHint() {
 </script>
 <template>
   <NavBreadcrumbs :section="section" :level="props.level" />
-  <section>
+  <section v-if="section">
     <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="summary">
       <div
         class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2"

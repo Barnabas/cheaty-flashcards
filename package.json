@@ -25,6 +25,7 @@
     "@types/howler": "^2.2.13",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/compiler-sfc": "^3.5.40",
+    "@vue/test-utils": "^2.4.11",
     "daisyui": "^5.6.18",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.3.3",

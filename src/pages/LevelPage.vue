@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import IconHint from "~icons/feather/zap";
+import IconEliminate from "~icons/feather/eye-off";
 import IconFinish from "~icons/feather/award";
 import IconRestart from "~icons/feather/repeat";
 import IconNext from "~icons/feather/arrow-right";
@@ -10,10 +11,19 @@ import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
 import { generateLevel, sections } from "../sections";
 import { Level, Question, AnswerType, LevelSummary } from "../types";
 import { playSound } from "../sounds";
-import { LevelMetrics, formatPercent, formatTime } from "../utils";
+import { LevelMetrics, formatPercent, formatTime, shuffle } from "../utils";
 import { useProgressStore } from "../stores/progress";
 import { useMasteryStore } from "../stores/mastery";
+import { useStreakStore } from "../stores/streak";
 import { FAST_RESPONSE_MS, MasteryOutcome } from "../mastery";
+import { isStreakMilestone } from "../streak";
+
+// Tiered cheat costs, spent from a per-level hint-token budget. Eliminating
+// two wrong answers still leaves recall work to do, so it's cheap; revealing
+// the answer outright skips recall entirely, so it costs much more.
+const START_HINT_TOKENS = 5;
+const ELIMINATE_COST = 1;
+const REVEAL_COST = 3;
 
 const props = defineProps<{
   section: string;
@@ -24,18 +34,24 @@ const route = useRoute();
 const section = sections.find((s) => s.id === props.section);
 const progress = useProgressStore();
 const mastery = useMasteryStore();
-const points = ref(0);
+const streak = useStreakStore();
+// useHead() must be called once, synchronously during setup — calling it
+// again later from a click handler (e.g. "Try Again") throws, since Vue
+// doesn't restore injection context for plain event listener invocations.
+// Passing a ref lets startLevel() just update the title reactively instead.
+const pageTitle = ref("");
+useHead({ title: pageTitle });
 const questionIndex = ref(0);
 const answerTypes = ref<Record<number, AnswerType>>({});
-const remainingHints = ref(0);
+const hintTokens = ref(0);
 const currentLevel = ref<Level>({ name: "?", level: 0, questions: [] });
 const summary = ref<LevelSummary | null>(null);
 const isNewBest = ref(false);
 const hadWrongThisQuestion = ref(false);
 const hintUsedThisQuestion = ref(false);
+const streakMilestone = ref<number | null>(null);
 let metrics = new LevelMetrics();
-
-let intervalId: number;
+let streakMilestoneTimeout: ReturnType<typeof setTimeout>;
 
 // "Focus on my 7s and 8s": a comma-separated ?focus=7,8 query param seeds the
 // weighted family pool. "Mixed practice" (?mixed=1) pairs inverse operations
@@ -67,6 +83,22 @@ const currentAnswers = computed<number[]>(() => {
   return currentQuestion.value.answers;
 });
 
+// Untried, not-yet-hidden wrong answers — what "Eliminate 2" has left to
+// hide. Once this runs out the button disables itself.
+const eliminableIndices = computed<number[]>(() => {
+  return currentAnswers.value
+    .map((value, index) => ({ value, index }))
+    .filter(
+      ({ value, index }) =>
+        value !== currentQuestion.value.correct && answerTypes.value[index] === undefined,
+    )
+    .map(({ index }) => index);
+});
+const canEliminate = computed(
+  () => hintTokens.value >= ELIMINATE_COST && eliminableIndices.value.length > 0,
+);
+const canReveal = computed(() => hintTokens.value >= REVEAL_COST);
+
 const personalBest = computed(() => {
   return section ? progress.getPersonalBest(section.id, currentLevel.value.level) : undefined;
 });
@@ -77,7 +109,15 @@ if (section) {
   router.push("/");
 }
 
-onUnmounted(() => clearInterval(intervalId));
+onUnmounted(() => clearTimeout(streakMilestoneTimeout));
+
+// Cancels any in-flight milestone celebration — used both when a hint use
+// breaks the streak the toast was just celebrating, and when starting a
+// fresh level/attempt shouldn't carry over a toast from the last one.
+function dismissStreakMilestone() {
+  streakMilestone.value = null;
+  clearTimeout(streakMilestoneTimeout);
+}
 
 function answerButtonClass(index: number) {
   const answerType = answerTypes.value[index];
@@ -90,11 +130,14 @@ function answerButtonClass(index: number) {
   };
 }
 
+// Colors track what's actually still affordable, not a raw token count —
+// with tiered costs, "2 tokens left" means very different things depending
+// on whether Reveal (3) is still in reach.
 function hintClass() {
   return {
-    "text-success": remainingHints.value > 2,
-    "text-warning": remainingHints.value == 2,
-    "text-error": remainingHints.value == 1,
+    "text-success": hintTokens.value >= REVEAL_COST,
+    "text-warning": hintTokens.value >= ELIMINATE_COST && hintTokens.value < REVEAL_COST,
+    "text-error": hintTokens.value < ELIMINATE_COST,
   };
 }
 
@@ -114,6 +157,18 @@ function recordFamilyOutcome() {
   mastery.recordAttempt(currentQuestion.value.familyKey, outcome);
 }
 
+function recordStreak() {
+  if (hintUsedThisQuestion.value) return;
+  const newStreak = streak.recordClean();
+  if (isStreakMilestone(newStreak)) {
+    streakMilestone.value = newStreak;
+    clearTimeout(streakMilestoneTimeout);
+    streakMilestoneTimeout = setTimeout(() => {
+      streakMilestone.value = null;
+    }, 2500);
+  }
+}
+
 function chooseAnswer(index: number) {
   if (
     answerTypes.value[index] !== "right" &&
@@ -121,6 +176,7 @@ function chooseAnswer(index: number) {
   ) {
     metrics.answerQuestion("right");
     recordFamilyOutcome();
+    recordStreak();
     if (questionIndex.value + 1 >= currentLevel.value.questions.length) {
       finishLevel();
     } else {
@@ -128,7 +184,6 @@ function chooseAnswer(index: number) {
       currentAnswers.value.forEach((_, index2) => {
         answerTypes.value[index2] = index2 === index ? "right" : "hide";
       });
-      points.value -= 1;
       setTimeout(() => {
         metrics.beginQuestion();
         questionIndex.value += 1;
@@ -140,7 +195,6 @@ function chooseAnswer(index: number) {
   } else if (answerTypes.value[index] !== "wrong") {
     metrics.answerQuestion("wrong");
     playSound("wrong");
-    points.value += 1;
     answerTypes.value[index] = "wrong";
     if (!hadWrongThisQuestion.value) {
       hadWrongThisQuestion.value = true;
@@ -151,9 +205,8 @@ function chooseAnswer(index: number) {
 
 function startLevel(levelId: number) {
   if (!section) return;
-  useHead({ title: `${section.name} - Level ${levelId}` });
+  pageTitle.value = `${section.name} - Level ${levelId}`;
   playSound("level_start");
-  clearInterval(intervalId);
 
   metrics = new LevelMetrics();
   metrics.beginQuestion();
@@ -166,23 +219,18 @@ function startLevel(levelId: number) {
     mixed: mixed.value,
     getMastery: (key) => mastery.getFamily(key),
   });
-  remainingHints.value = 5;
-  points.value = 1;
+  hintTokens.value = START_HINT_TOKENS;
   summary.value = null;
   questionIndex.value = 0;
   answerTypes.value = {};
+  dismissStreakMilestone();
   hadWrongThisQuestion.value = false;
   hintUsedThisQuestion.value = false;
-
-  intervalId = setInterval(() => {
-    points.value += 1;
-  }, 2000);
 }
 
 function finishLevel() {
   playSound("level_end");
-  clearInterval(intervalId);
-  summary.value = metrics.endLevel(points.value);
+  summary.value = metrics.endLevel();
   isNewBest.value = section
     ? progress.recordLevelResult(section.id, currentLevel.value.level, summary.value)
     : false;
@@ -198,14 +246,34 @@ function nextLevel() {
   }
 }
 
-function showHint() {
-  if (remainingHints.value < 1) return;
+// Both hint tiers still hold the family's mastery stage and grant no credit
+// for this question — see recordFamilyOutcome — and break the cheat-free
+// streak immediately, rather than waiting for the question to resolve.
+function markCheated() {
+  hintUsedThisQuestion.value = true;
+  streak.recordCheat();
+  dismissStreakMilestone();
+}
+
+function eliminateWrong() {
+  if (!canEliminate.value) return;
+  playSound("cheat");
+  shuffle([...eliminableIndices.value])
+    .slice(0, 2)
+    .forEach((index) => {
+      answerTypes.value[index] = "hide";
+    });
+  hintTokens.value -= ELIMINATE_COST;
+  markCheated();
+}
+
+function revealAnswer() {
+  if (!canReveal.value) return;
   const index = currentAnswers.value.findIndex((a) => a === currentQuestion.value.correct);
   playSound("cheat");
   answerTypes.value[index] = "hint";
-  remainingHints.value -= 1;
-  points.value += 1;
-  hintUsedThisQuestion.value = true;
+  hintTokens.value -= REVEAL_COST;
+  markCheated();
 
   setTimeout(() => {
     if (answerTypes.value[index] === "hint") delete answerTypes.value[index];
@@ -226,10 +294,6 @@ function showHint() {
         </div>
         <table class="table table-lg table-fixed">
           <tbody>
-            <tr>
-              <td class="text-right font-bold">Points:</td>
-              <td>{{ summary.points }}</td>
-            </tr>
             <tr>
               <td class="text-right font-bold">Score:</td>
               <td>
@@ -269,7 +333,17 @@ function showHint() {
         </div>
       </div>
     </div>
-    <div v-else class="mt-4 flex flex-col gap-4 lg:gap-8">
+    <div v-else class="mt-4 flex flex-col gap-4 lg:gap-8 relative">
+      <div
+        v-if="streakMilestone"
+        class="toast toast-top toast-center z-10 animate-bounce"
+        role="status"
+        data-testid="streak-milestone"
+      >
+        <div class="alert alert-success shadow-lg">
+          <span>🔥 {{ streakMilestone }} cheat-free streak!</span>
+        </div>
+      </div>
       <div class="flex gap-8 text-8xl font-bold font-display justify-center">
         <span>{{ currentQuestion.factors[0] }}</span>
         <span>{{ currentQuestion.operator }}</span>
@@ -281,25 +355,43 @@ function showHint() {
           :class="answerButtonClass(idx)"
           v-for="(answer, idx) in currentAnswers"
           @click="chooseAnswer(idx)"
+          data-testid="answer-button"
         >
           {{ answer }}
         </button>
       </div>
 
-      <div class="container flex justify-between">
-        <button
-          class="btn btn-accent tracking-widest"
-          @click="showHint()"
-          :disabled="remainingHints < 1"
-        >
-          Cheat
-        </button>
-        <div class="flex gap-1" :class="hintClass()">
-          <IconHint class="inline-block" v-for="_hint in remainingHints" />
+      <div class="container flex flex-wrap justify-between gap-2">
+        <div class="flex gap-2">
+          <button
+            class="btn btn-secondary tracking-wide"
+            @click="eliminateWrong()"
+            :disabled="!canEliminate"
+            data-testid="eliminate-button"
+          >
+            <IconEliminate />
+            Eliminate 2 ({{ ELIMINATE_COST }})
+          </button>
+          <button
+            class="btn btn-accent tracking-wide"
+            @click="revealAnswer()"
+            :disabled="!canReveal"
+            data-testid="reveal-button"
+          >
+            <IconHint />
+            Reveal ({{ REVEAL_COST }})
+          </button>
+        </div>
+        <div class="flex gap-1 items-center" :class="hintClass()" data-testid="hint-tokens">
+          <IconHint class="inline-block" v-for="_hint in hintTokens" />
         </div>
       </div>
-      <div class="container flex items-center">
-        <div class="w-1/3">{{ points }} points</div>
+      <div class="container flex items-center gap-4">
+        <div class="w-1/3">
+          <span v-if="streak.current > 0" data-testid="streak-count"
+            >🔥 {{ streak.current }} streak</span
+          >
+        </div>
         <progress
           class="w-2/3 progress progress-primary"
           :value="questionIndex + 1"

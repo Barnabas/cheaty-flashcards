@@ -5,6 +5,7 @@ import { createPersistedState } from "pinia-plugin-persistedstate";
 import { useSettingsStore } from "./settings";
 import { useProgressStore } from "./progress";
 import { useMasteryStore } from "./mastery";
+import { useStreakStore } from "./streak";
 import { LevelSummary } from "../types";
 
 // Pinia only activates plugins once installed on a real app (pinia.use()
@@ -21,7 +22,6 @@ const sampleSummary: LevelSummary = {
   levelTime: 5000,
   questionsCorrect: 9,
   percentCorrect: 0.9,
-  points: 1,
   questionTimeAverage: 500,
   questionTimeMax: 900,
   message: "",
@@ -65,6 +65,17 @@ describe("store persistence round-trips", () => {
 
     freshPinia();
     expect(useMasteryStore().getFamily("multiply:3,6,9")).toMatchObject({ stage: 2, timesSeen: 5 });
+  });
+
+  it("survives a simulated reload for the cheat-free streak", () => {
+    freshPinia();
+    const streak = useStreakStore();
+    streak.recordClean();
+    streak.recordClean();
+    streak.$persist();
+
+    freshPinia();
+    expect(useStreakStore().current).toBe(2);
   });
 
   it("defaults to fresh state when nothing was ever persisted", () => {

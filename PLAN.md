@@ -307,15 +307,146 @@ it as the real footer in the About/Credits phase.
   worth remembering next time a phase gets manually browser-tested this
   way.
 
-### Phase 3 — Cheat mechanic rework
+### Phase 3 — Cheat mechanic rework — done (2026-07-20)
 
-- [ ] Tiered hints (cheap: eliminate 2 wrong answers; expensive: reveal
+- [x] Tiered hints (cheap: eliminate 2 wrong answers; expensive: reveal
       answer)
-- [ ] Cheat-free streak tracking + visible reward (badge/animation/sound)
-- [ ] Cheated-to answers contribute little/no mastery credit
-- [ ] Retire the old point-accumulation score entirely
-- [ ] Component tests: cheat button behavior at each tier, streak
+      — `LevelPage.vue` replaced the flat 5-hint counter with a per-level
+      5-token budget (`START_HINT_TOKENS`). `eliminateWrong()` costs
+      `ELIMINATE_COST = 1`, hides up to 2 untried/unhidden wrong answers
+      (picked via `shuffle()` from `eliminableIndices`, which excludes
+      answers already tried or hidden); disables itself once no untried
+      wrong answers remain, even if tokens are still available.
+      `revealAnswer()` costs `REVEAL_COST = 3` and is the old flash-for-1s
+      behavior, unchanged. Both buttons independently disable based on
+      `canEliminate`/`canReveal` computeds.
+- [x] Cheat-free streak tracking + visible reward (badge/animation/sound)
+      — new persisted `src/stores/streak.ts` (`current`, actions
+      `recordClean()`/`recordCheat()`) plus pure `src/streak.ts`
+      (`STREAK_MILESTONES = [5, 10, 25, 50, 100, 250, 500]`,
+      `isStreakMilestone()`). `LevelPage.vue`'s `recordStreak()` calls
+      `streak.recordClean()` after every hint-free correct answer; hitting
+      a milestone shows a daisyUI `toast`/`alert` badge
+      (`streakMilestone` ref) for 2.5s, using Tailwind's built-in
+      `animate-bounce` rather than a new animation dependency. The streak
+      resets **immediately** when a hint is used (inside `markCheated()`,
+      called from both `eliminateWrong()` and `revealAnswer()`), not when
+      the question is later answered — cheating breaks the streak the
+      moment it happens. Sound cues for streak events are explicitly out
+      of scope here; Phase 7 owns "expanded sound cues for new events
+      (streaks...)". A `best` (highest-ever streak) field was considered
+      and deliberately left out — nothing in this phase surfaces it, and
+      Phase 1 already established the precedent of not stubbing persisted
+      schema ahead of a real consumer; add it back if/when a "best streak"
+      UI actually lands.
+- [x] Cheated-to answers contribute little/no mastery credit
+      — already true from Phase 2's `applyOutcome("cheated", ...)`; both
+      hint tiers set `hintUsedThisQuestion`, so `recordFamilyOutcome()`
+      still classifies the eventual answer as `"cheated"` regardless of
+      which tier was used. Not differentiating credit by tier was a
+      deliberate simplification — see design note below.
+- [x] Retire the old point-accumulation score entirely
+      — removed `points` ref, the 2s `setInterval` that ticked it up, and
+      the +1/-1 adjustments on right/wrong/hint. `LevelSummary.points` and
+      `LevelMetrics.endLevel(points)`'s parameter are gone from
+      `types.ts`/`utils.ts` (and their fixtures in
+      `stores/progress.test.ts`/`stores/persistence.test.ts`). The
+      level-complete summary table lost its "Points:" row; the per-level
+      play view now shows the cheat-free streak count (when > 0) where
+      points used to be. `SiteHeader.vue`'s help-modal copy was rewritten
+      to describe hint tokens and streaks instead of the old points rules.
+- [x] Component tests: cheat button behavior at each tier, streak
       resets/rewards
+      — added `@vue/test-utils` as a devDependency (first component-test
+      usage in the repo). New `src/pages/LevelPage.test.ts` mocks
+      `../sections`' `generateLevel` to return a fixed, non-random level
+      (correct answer always `2`, at a known family key) so tests don't
+      have to fight `shuffle()`/`Math.random()`; mounts through a real
+      `vue-router` (memory history) + `@unhead/vue/client` head instance,
+      mirroring `main.ts`'s plugin wiring, and mutes `soundEnabled` before
+      mount to avoid Howler playback under jsdom. Covers: hint-token
+      budget rendering, `Eliminate 2` hiding exactly 2 untried wrong
+      answers and disabling once exhausted, `Reveal` flashing/costing 3
+      tokens and disabling below that, cheated questions granting no
+      mastery credit, streak building to the first milestone (with the
+      toast rendering), and immediate streak reset on hint use. Template
+      gained `data-testid` hooks (`answer-button`, `eliminate-button`,
+      `reveal-button`, `hint-tokens`, `streak-milestone`, `streak-count`)
+      purely for test targeting.
+
+  **Design note on hint-tier credit** (not in the original checklist):
+  the plan's mastery-credit rule ("cheated-to answers contribute
+  little/no mastery progress") doesn't distinguish between the two hint
+  tiers. Eliminating 2 wrong answers still requires real recall among the
+  remaining 3 options, arguably deserving partial credit vs. an outright
+  reveal — but adding a third `MasteryOutcome` for "assisted-correct"
+  felt like speculative complexity with no evidence it's needed yet.
+  Revisit if playtesting shows `Eliminate 2` feels too punishing relative
+  to how little it actually gives away.
+
+  **Manual verification**: ran the app via `pnpm run dev` + a throwaway
+  Playwright script (Playwright was added as a devDependency temporarily
+  for this and removed again afterward — not part of the toolchain
+  decision, just a one-off browser driver since no `chromium-cli` was
+  available in this environment). Confirmed by screenshot: `Eliminate 2`
+  visually dims exactly 2 wrong answers and spends 1 token; `Reveal`
+  highlights the correct answer blue and spends 3 tokens, disabling
+  itself; 5 clean answers in a row produces the "🔥 5 cheat-free streak!"
+  toast and a persistent streak counter in the play view.
+
+  **Self-review pass**: ran an 8-angle diff review before calling this
+  phase done. Two real regressions from this phase's own changes got
+  fixed as a result: (1) `streakMilestone`/its auto-hide timeout weren't
+  reset by `startLevel()`, so hitting a milestone right before "Try
+  Again"/"Next Level" could leave a stale toast showing over the new
+  attempt — fixed via a shared `dismissStreakMilestone()` called from both
+  `startLevel()` and `markCheated()` (the latter because cheating right
+  after a milestone should also kill the now-false toast, not just reset
+  the counter underneath it). (2) `hintClass()`'s success/warning/error
+  thresholds were carried over unchanged from the old flat-hint-count
+  system and no longer meant anything once tiers had different costs —
+  fixed to key off actual affordability (`>= REVEAL_COST` /
+  `>= ELIMINATE_COST` / below both). Also caught and fixed before it
+  shipped: an unused `best` field speculatively added to the streak store
+  (see design note above) and a missing `persistence.test.ts` case for
+  the new streak store.
+
+  **Found while writing the regression test for (1), much bigger than
+  (1)**: a component test for "stale toast survives Try Again" kept
+  passing regardless of whether the fix was applied, which turned out to
+  be because `startLevel()` was silently failing entirely — `useHead()`
+  (first line of `startLevel()`, unchanged by this phase, i.e.
+  **pre-existing**) was being re-invoked every time a level starts,
+  including from the "Try Again"/"Next Level" click handlers. `@unhead/vue`
+  requires `useHead()` to run during a component's synchronous setup call
+  stack; Vue does not restore injection context for plain DOM event
+  listener invocations (confirmed by reading `callWithErrorHandling` in
+  `@vue/runtime-core` — it does not call `setCurrentInstance`), so the
+  second and every subsequent call threw `"useHead() was called without
+provide context"`, aborting the rest of `startLevel()` before it reset
+  anything. **This meant clicking "Try Again" or "Next Level" was
+  completely broken in production** — confirmed with a real headless
+  Chromium session (not just the jsdom component test), not merely a test
+  artifact. Fixed by calling `useHead({ title: pageTitle })` exactly once
+  at setup time with a reactive `ref`, and having `startLevel()` just
+  update `pageTitle.value` instead of re-calling `useHead()`. Re-verified
+  both "Try Again" and "Next Level" end-to-end in a real browser after the
+  fix. This was a significant enough, if pre-existing, correctness bug
+  that it was fixed on the spot rather than deferred — unlike the two
+  narrower pre-existing races below.
+
+  Two smaller **pre-existing** issues (present before this phase, not
+  introduced by it, left unfixed as out of scope) also surfaced in the
+  same review and are worth a follow-up: `chooseAnswer()`'s wrong-answer
+  branch is only guarded by `answerTypes.value[index] !== "wrong"`, so a
+  double-click on the button that was just marked correct (during the
+  500ms transition-to-next-question window) falls through and records a
+  spurious `"wrong"` mastery attempt on top of the correct one; and
+  `revealAnswer()`'s (formerly `showHint()`'s) 1s cleanup `setTimeout` is
+  untracked/uncancellable, unlike `streakMilestoneTimeout`, so a rapid
+  "Try Again" during a reveal can in principle clear the wrong question's
+  highlight early. Both are narrow races, not touched by this phase's
+  changes beyond a rename, and not worth widening this diff to fix.
 
 ### Phase 4 — Progress UI
 

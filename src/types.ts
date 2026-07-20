@@ -26,7 +26,6 @@ export type LevelSummary = {
   levelTime: number;
   questionsCorrect: number;
   percentCorrect: number;
-  points: number;
   questionTimeAverage: number;
   questionTimeMax: number;
   message: string;

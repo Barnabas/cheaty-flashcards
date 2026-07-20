@@ -8,7 +8,6 @@ function summary(overrides: Partial<LevelSummary> = {}): LevelSummary {
     levelTime: 10000,
     questionsCorrect: 8,
     percentCorrect: 0.8,
-    points: 3,
     questionTimeAverage: 1000,
     questionTimeMax: 2000,
     message: "",

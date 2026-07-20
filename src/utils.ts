@@ -48,7 +48,7 @@ export class LevelMetrics {
     }
   }
 
-  endLevel(points: number): LevelSummary {
+  endLevel(): LevelSummary {
     const { questionsCorrect, questionsTotal, questionTimeTotal, questionTimeMax } = this;
     const percentCorrect = questionsCorrect / questionsTotal;
 
@@ -65,7 +65,6 @@ export class LevelMetrics {
       levelTime: Date.now() - this.levelStart,
       questionsCorrect,
       percentCorrect,
-      points,
       questionTimeAverage: questionTimeTotal / questionsTotal,
       questionTimeMax,
       message,

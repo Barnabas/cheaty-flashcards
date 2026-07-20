@@ -41,13 +41,15 @@ const settings = useSettingsStore();
         <button class="btn btn-sm">Close</button>
       </h3>
       <p class="py-2">
-        Cheaty Flashcards is a game where you can learn math and cheat a little bit too. The object
-        of the game is to get as <i>few</i> points as possible, kind of like golf. Points are
-        displayed on the bottom left and gradually go up with time.
+        Cheaty Flashcards is a game where you can learn math and cheat a little bit too. Answer
+        correctly to move on, or spend hint tokens to cheat: <b>Eliminate 2</b> removes two wrong
+        answers for 1 token, <b>Reveal</b> flashes the correct answer for 3 tokens. Each level
+        starts with 5 tokens.
       </p>
       <p class="py-2">
-        You can cheat a couple of times in each level, but every cheat will add 1 point. Wrong
-        answers add 1 point too, but right answers subtract 1 point.
+        Cheating works, but it doesn't help you get faster at the facts — questions you cheat on
+        don't count toward mastering that fact, and cheating breaks your cheat-free streak (shown
+        bottom left once it starts). Keep the streak going for a reward!
       </p>
       <p class="py-2 text-center">Made with ❤️ for L.J. from Uncle Barn</p>
     </form>

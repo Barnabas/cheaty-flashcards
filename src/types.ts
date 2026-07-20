@@ -1,6 +1,8 @@
 export type Operator = "+" | "-" | "×" | "÷";
 
 export type Question = {
+  operator: Operator;
+  familyKey: string;
   factors: number[];
   correct: number;
   answers: number[];

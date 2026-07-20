@@ -4,7 +4,7 @@ import IconFinish from "~icons/feather/award";
 import IconRestart from "~icons/feather/repeat";
 import IconNext from "~icons/feather/arrow-right";
 import { ref, computed, onUnmounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
 import { generateLevel, sections } from "../sections";
@@ -12,14 +12,18 @@ import { Level, Question, AnswerType, LevelSummary } from "../types";
 import { playSound } from "../sounds";
 import { LevelMetrics, formatPercent, formatTime } from "../utils";
 import { useProgressStore } from "../stores/progress";
+import { useMasteryStore } from "../stores/mastery";
+import { FAST_RESPONSE_MS, MasteryOutcome } from "../mastery";
 
 const props = defineProps<{
   section: string;
   level: string;
 }>();
 const router = useRouter();
+const route = useRoute();
 const section = sections.find((s) => s.id === props.section);
 const progress = useProgressStore();
+const mastery = useMasteryStore();
 const points = ref(0);
 const questionIndex = ref(0);
 const answerTypes = ref<Record<number, AnswerType>>({});
@@ -27,13 +31,31 @@ const remainingHints = ref(0);
 const currentLevel = ref<Level>({ name: "?", level: 0, questions: [] });
 const summary = ref<LevelSummary | null>(null);
 const isNewBest = ref(false);
+const hadWrongThisQuestion = ref(false);
+const hintUsedThisQuestion = ref(false);
 let metrics = new LevelMetrics();
 
 let intervalId: number;
 
+// "Focus on my 7s and 8s": a comma-separated ?focus=7,8 query param seeds the
+// weighted family pool. "Mixed practice" (?mixed=1) pairs inverse operations
+// from the same fact-family group in one session.
+const focusNumbers = computed<number[] | undefined>(() => {
+  const raw = route.query.focus;
+  if (typeof raw !== "string") return undefined;
+  const numbers = raw
+    .split(",")
+    .map((n) => parseInt(n, 10))
+    .filter((n) => !Number.isNaN(n));
+  return numbers.length > 0 ? numbers : undefined;
+});
+const mixed = computed(() => route.query.mixed === "1");
+
 const currentQuestion = computed<Question>(() => {
   return (
     currentLevel.value.questions[questionIndex.value] || {
+      operator: "+",
+      familyKey: "",
       factors: [],
       correct: 0,
       answers: [],
@@ -76,12 +98,29 @@ function hintClass() {
   };
 }
 
+// Cheated-to or eventually-correct-after-a-wrong-guess answers still count
+// as "known", but don't earn the fast-recall promotion a clean, quick
+// answer does.
+function recordFamilyOutcome() {
+  let outcome: MasteryOutcome;
+  if (hintUsedThisQuestion.value) {
+    outcome = "cheated";
+  } else if (hadWrongThisQuestion.value) {
+    outcome = "correct-slow";
+  } else {
+    const elapsed = Date.now() - metrics.questionStart;
+    outcome = elapsed < FAST_RESPONSE_MS ? "correct-fast" : "correct-slow";
+  }
+  mastery.recordAttempt(currentQuestion.value.familyKey, outcome);
+}
+
 function chooseAnswer(index: number) {
   if (
     answerTypes.value[index] !== "right" &&
     currentAnswers.value[index] === currentQuestion.value.correct
   ) {
     metrics.answerQuestion("right");
+    recordFamilyOutcome();
     if (questionIndex.value + 1 >= currentLevel.value.questions.length) {
       finishLevel();
     } else {
@@ -94,6 +133,8 @@ function chooseAnswer(index: number) {
         metrics.beginQuestion();
         questionIndex.value += 1;
         answerTypes.value = {};
+        hadWrongThisQuestion.value = false;
+        hintUsedThisQuestion.value = false;
       }, 500);
     }
   } else if (answerTypes.value[index] !== "wrong") {
@@ -101,6 +142,10 @@ function chooseAnswer(index: number) {
     playSound("wrong");
     points.value += 1;
     answerTypes.value[index] = "wrong";
+    if (!hadWrongThisQuestion.value) {
+      hadWrongThisQuestion.value = true;
+      mastery.recordAttempt(currentQuestion.value.familyKey, "wrong");
+    }
   }
 }
 
@@ -117,12 +162,17 @@ function startLevel(levelId: number) {
     level: levelId,
     questionCount: 10,
     answerCount: 5,
+    focusNumbers: focusNumbers.value,
+    mixed: mixed.value,
+    getMastery: (key) => mastery.getFamily(key),
   });
   remainingHints.value = 5;
   points.value = 1;
   summary.value = null;
   questionIndex.value = 0;
   answerTypes.value = {};
+  hadWrongThisQuestion.value = false;
+  hintUsedThisQuestion.value = false;
 
   intervalId = setInterval(() => {
     points.value += 1;
@@ -141,7 +191,7 @@ function finishLevel() {
 function nextLevel() {
   const next = currentLevel.value.level + 1;
   if (section && next <= 8) {
-    router.push(`/${section.id}/${next}`);
+    router.push({ path: `/${section.id}/${next}`, query: route.query });
     startLevel(next);
   } else {
     router.push("/");
@@ -155,6 +205,7 @@ function showHint() {
   answerTypes.value[index] = "hint";
   remainingHints.value -= 1;
   points.value += 1;
+  hintUsedThisQuestion.value = true;
 
   setTimeout(() => {
     if (answerTypes.value[index] === "hint") delete answerTypes.value[index];
@@ -221,7 +272,7 @@ function showHint() {
     <div v-else class="mt-4 flex flex-col gap-4 lg:gap-8">
       <div class="flex gap-8 text-8xl font-bold font-display justify-center">
         <span>{{ currentQuestion.factors[0] }}</span>
-        <span>{{ section.operator }}</span>
+        <span>{{ currentQuestion.operator }}</span>
         <span>{{ currentQuestion.factors[1] }}</span>
       </div>
       <div class="flex gap-2 md:gap-4 lg:gap-8 justify-center">

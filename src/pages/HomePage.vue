@@ -1,17 +1,33 @@
 <script lang="ts" setup>
-import LevelLinks from "../components/LevelLinks.vue";
+import { computed } from "vue";
+import OperatorGroupPanel from "../components/OperatorGroupPanel.vue";
+import ProgressBackup from "../components/ProgressBackup.vue";
 import { sections } from "../sections";
+import { operatorGroup, OperatorGroup } from "../mastery";
+import { useStreakStore } from "../stores/streak";
+
+const streak = useStreakStore();
+
+const groups = (["add", "multiply"] as OperatorGroup[]).map((group) => ({
+  group,
+  sections: sections.filter((s) => operatorGroup(s.operator) === group),
+}));
+const bestStreak = computed(() => streak.best);
 </script>
 <template>
-  <section class="container mt-4 grid gap-8 md:grid-cols-2">
-    <div v-for="section in sections" :key="section.id">
-      <h2 class="font-display mb-2 flex items-center gap-2">
-        <span class="text-2xl font-bold">{{ section.operator }}</span>
-        <RouterLink class="text-xl text-accent" :to="'/' + section.id">
-          {{ section.name }}
-        </RouterLink>
-      </h2>
-      <LevelLinks :section="section" />
+  <section class="container mt-4 flex flex-col gap-8">
+    <div v-if="bestStreak > 0" class="text-center text-lg" data-testid="best-streak">
+      🔥 Best cheat-free streak: {{ bestStreak }}
+    </div>
+    <OperatorGroupPanel
+      v-for="g in groups"
+      :key="g.group"
+      :group="g.group"
+      :sections="g.sections"
+    />
+    <div class="card bg-base-100 shadow-md p-4">
+      <h2 class="font-display text-lg font-bold mb-2">Backup progress</h2>
+      <ProgressBackup />
     </div>
   </section>
 </template>

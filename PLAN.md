@@ -6,7 +6,7 @@ Living plan document. Update checkboxes and add notes as phases land; don't dele
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-07-20
+Last updated: 2026-07-20 (Phase 4)
 
 ## Why this redesign
 
@@ -33,7 +33,7 @@ Current implementation state is the code itself (README.md has the architecture 
 
 ## Library changes
 
-**Added so far:** `vite-plus` (replaces `vite`, adds `vp check`/`vp test`/`vp run`/`vp pack`; re-exports Vitest 4.x under `vite-plus/test`), `pinia` + `pinia-plugin-persistedstate`, `@vue/test-utils`.
+**Added so far:** `vite-plus` (replaces `vite`, adds `vp check`/`vp test`/`vp run`/`vp pack`; re-exports Vitest 4.x under `vite-plus/test`), `pinia` + `pinia-plugin-persistedstate`, `@vue/test-utils`, `playwright` (devDependency, kept permanently as of Phase 4 for manual real-browser verification — was previously added/removed per phase, which was just churn since every phase needs it).
 
 **Not yet added:** `canvas-confetti` (+ `@types/canvas-confetti`) — planned for Phase 7. `vite-plugin-pwa` — planned for Phase 6.
 
@@ -76,12 +76,9 @@ Fact-family grouping + Leitner stages (`src/mastery.ts`), weighted adaptive samp
 
 Tiered hint-token budget (eliminate-2 costs 1, reveal costs 3) replacing the flat 5-hint counter; cheat-free streak tracking with milestone toasts; old point-accumulation score fully retired; component tests added. Also fixed a production-breaking pre-existing bug ("Try Again"/"Next Level" silently failing via `useHead()`). Full detail, design notes, self-review findings: `plan-notes/phase-3.md`.
 
-### Phase 4 — Progress UI
+### Phase 4 — Progress UI — done (2026-07-20)
 
-- [ ] Home page dashboard: per-operation mastery view (grid/heatmap of fact families), personal bests, streaks — replaces "pick a level number" flow
-- [ ] Milestone/badge display decoupled from raw difficulty
-- [ ] JSON export/import of progress (local file, no server)
-- [ ] Component tests for dashboard rendering against store fixtures
+Home page replaced with a mastery-first dashboard: per-group fact-family heatmaps, level-clear badges, best cheat-free streak, JSON export/import. Caught and fixed a real (not just test-theoretical) export bug via manual browser verification — see notes. Full detail: `plan-notes/phase-4.md`.
 
 ### Phase 5 — Routing & deployment migration
 

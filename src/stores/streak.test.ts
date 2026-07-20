@@ -25,4 +25,15 @@ describe("useStreakStore", () => {
     streak.recordCheat();
     expect(streak.current).toBe(0);
   });
+
+  it("tracks the best streak ever reached, surviving a cheat reset", () => {
+    const streak = useStreakStore();
+    streak.recordClean();
+    streak.recordClean();
+    streak.recordClean();
+    streak.recordCheat();
+    streak.recordClean();
+    expect(streak.current).toBe(1);
+    expect(streak.best).toBe(3);
+  });
 });

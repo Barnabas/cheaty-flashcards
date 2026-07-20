@@ -76,6 +76,7 @@ describe("store persistence round-trips", () => {
 
     freshPinia();
     expect(useStreakStore().current).toBe(2);
+    expect(useStreakStore().best).toBe(2);
   });
 
   it("defaults to fresh state when nothing was ever persisted", () => {

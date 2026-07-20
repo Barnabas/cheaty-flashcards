@@ -28,6 +28,7 @@
     "@vue/test-utils": "^2.4.11",
     "daisyui": "^5.6.18",
     "jsdom": "^29.1.1",
+    "playwright": "^1.61.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "unplugin-icons": "^23.0.1",

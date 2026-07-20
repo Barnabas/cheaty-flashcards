@@ -3,12 +3,14 @@ import { defineStore } from "pinia";
 export const useStreakStore = defineStore("streak", {
   state: () => ({
     current: 0,
+    best: 0,
   }),
   actions: {
     // Called after a question is answered correctly without any hint used
     // on it. Returns the new streak count.
     recordClean(): number {
       this.current += 1;
+      if (this.current > this.best) this.best = this.current;
       return this.current;
     },
     // A hint was used on the current question, breaking the cheat-free

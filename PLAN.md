@@ -6,7 +6,7 @@ Living plan document. Update checkboxes and add notes as phases land; don't dele
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-07-20 (Phase 4)
+Last updated: 2026-07-20 (Phase 5)
 
 ## Why this redesign
 
@@ -33,7 +33,7 @@ Current implementation state is the code itself (README.md has the architecture 
 
 ## Library changes
 
-**Added so far:** `vite-plus` (replaces `vite`, adds `vp check`/`vp test`/`vp run`/`vp pack`; re-exports Vitest 4.x under `vite-plus/test`), `pinia` + `pinia-plugin-persistedstate`, `@vue/test-utils`, `playwright` (devDependency, kept permanently as of Phase 4 for manual real-browser verification — was previously added/removed per phase, which was just churn since every phase needs it).
+**Added so far:** `vite-plus` (replaces `vite`, adds `vp check`/`vp test`/`vp run`/`vp pack`; re-exports Vitest 4.x under `vite-plus/test`), `pinia` + `pinia-plugin-persistedstate`, `@vue/test-utils`, `playwright` (devDependency, kept permanently as of Phase 4 for manual real-browser verification — was previously added/removed per phase, which was just churn since every phase needs it), `wrangler` (Phase 5, deploy tooling — see `wrangler.jsonc`).
 
 **Not yet added:** `canvas-confetti` (+ `@types/canvas-confetti`) — planned for Phase 7. `vite-plugin-pwa` — planned for Phase 6.
 
@@ -80,12 +80,14 @@ Tiered hint-token budget (eliminate-2 costs 1, reveal costs 3) replacing the fla
 
 Home page replaced with a mastery-first dashboard: per-group fact-family heatmaps, level-clear badges, best cheat-free streak, JSON export/import. Caught and fixed a real (not just test-theoretical) export bug via manual browser verification — see notes. Full detail: `plan-notes/phase-4.md`.
 
-### Phase 5 — Routing & deployment migration
+### Phase 5 — Routing & deployment migration — done (2026-07-20)
 
-- [ ] Switch `createWebHashHistory` → `createWebHistory`
-- [ ] Cloudflare Workers static-assets config (wrangler config, SPA fallback / `not_found_handling`) replacing the ad hoc Pages-dashboard flow
-- [ ] Confirm Vite+'s Cloudflare deploy support covers this cleanly
-- [ ] Update README deployment instructions
+- [x] Switch `createWebHashHistory` → `createWebHistory`
+- [x] Cloudflare Workers static-assets config (wrangler config, SPA fallback / `not_found_handling`) replacing the ad hoc Pages-dashboard flow
+- [x] Confirm Vite+'s Cloudflare deploy support covers this cleanly
+- [x] Update README deployment instructions
+
+New `wrangler.jsonc` (assets-only Worker, no script) plus `pnpm deploy` script; `not_found_handling: "single-page-application"` handles deep-link fallback now that routes are real paths. Vite+ has no dedicated Cloudflare deploy integration — plain `vp build` + `wrangler deploy` is the whole story. Verified with `wrangler deploy --dry-run` and a real-browser Playwright reload check on `vp preview`. Full detail: `plan-notes/phase-5.md`.
 
 ### Phase 6 — PWA
 

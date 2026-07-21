@@ -15,7 +15,8 @@ layer. Progress and scores exist only for the duration of a level.
 - **Vite+** (`vite-plus`) as the toolchain — wraps Vite 8, runs tests via its
   bundled Vitest (`vite-plus/test`), and provides `vp check` for
   Oxc-based lint/format/type-check
-- **vue-router 5** with hash history, for `/section` and `/section/level` routes
+- **vue-router 5** with real (`history`) routing, for `/section` and `/section/level` routes —
+  requires SPA fallback support from the host, see Deployment below
 - **Tailwind CSS 4** + **daisyUI 5**, configured entirely via CSS (`src/style.css`)
   using `@import`/`@plugin`/`@theme` — there is no `tailwind.config.js` or
   `postcss.config.js` in Tailwind v4
@@ -65,6 +66,26 @@ This repo uses **pnpm** (see `pnpm-workspace.yaml`) with **Vite+** as the
 toolchain runner — see `AGENTS.md` for a summary, or
 `node_modules/vite-plus/docs` for the full reference. Tests live alongside
 the source files they cover (`*.test.ts`), imported from `vite-plus/test`.
+
+## Deployment
+
+Deploys to **Cloudflare Workers** using [Workers static assets](https://developers.cloudflare.com/workers/static-assets/)
+— there's no Worker script, `wrangler.jsonc` just points at the `dist/`
+build output:
+
+```bash
+pnpm deploy    # vp build, then wrangler deploy
+```
+
+The first deploy from a new machine needs `wrangler login` (or `CLOUDFLARE_API_TOKEN`
+in CI) to authenticate. `wrangler.jsonc` sets `assets.not_found_handling` to
+`single-page-application`, so unmatched navigation requests fall back to
+`index.html` — required because the app uses real (non-hash) `vue-router`
+history and routes like `/add/3` aren't real files. Verify a config change
+without publishing via `pnpm exec wrangler deploy --dry-run`.
+
+This replaces the old ad hoc Cloudflare Pages dashboard flow — there is no
+Pages project for this app anymore, only a Workers one.
 
 ## Notes for future maintainers / AI agents
 

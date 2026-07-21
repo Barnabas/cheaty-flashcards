@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 
 import Home from "./pages/HomePage.vue";
 import Section from "./pages/SectionPage.vue";
@@ -10,6 +10,6 @@ const routes = [
   { path: "/:section/:level", component: Level, props: true },
 ];
 export const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes,
 });

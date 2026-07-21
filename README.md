@@ -87,6 +87,41 @@ without publishing via `pnpm exec wrangler deploy --dry-run`.
 This replaces the old ad hoc Cloudflare Pages dashboard flow — there is no
 Pages project for this app anymore, only a Workers one.
 
+## PWA
+
+The production build is installable and playable offline via
+[`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/) (`generateSW` mode,
+configured in `vite.config.ts`). `vp build` emits `dist/sw.js` +
+`dist/manifest.webmanifest` alongside the usual assets, and `registerSW.js`
+is auto-injected into `index.html`'s `<head>`.
+
+- **Icons**: source SVGs live in `src/assets/icons/` (`icon.svg` for
+  favicons/app icons, `icon-maskable.svg` — full-bleed background, content
+  kept inside the safe zone — for Android adaptive/maskable icons). The
+  actual PNGs served from `public/` (`pwa-192x192.png`, `pwa-512x512.png`,
+  `maskable-icon-512x512.png`, `apple-touch-icon.png`, `favicon.ico` +
+  `favicon-{16,32}x32.png`) are pre-rendered from those SVGs — macOS's
+  built-in `sips -s format png file.svg --out out.png -Z <size>` rasterizes
+  SVG directly, no ImageMagick/`sharp`/Node canvas dependency needed if you
+  need to regenerate them.
+- **Offline**: `workbox.navigateFallback: "/index.html"` is set explicitly —
+  without it, `generateSW`'s default precache doesn't serve `index.html` for
+  arbitrary client-side routes, so an offline deep-link/reload to e.g.
+  `/add/3` would fail even though the shell is cached. `globPatterns` is
+  widened beyond the workbox default to include `woff2` (Fredoka variable
+  font files) and `mp3` (Howler sound effects) so the app is fully playable,
+  sound and all, with no network.
+- **Dev server**: the plugin only activates for production builds by
+  default (`devOptions.enabled` is unset/false) — `vp dev` has no service
+  worker, which avoids the classic "why isn't my change showing up" caching
+  confusion during development. Test PWA behavior against `vp preview`
+  (serves the real `dist/` build) instead.
+- Verified manually: manifest resolves and validates, service worker
+  activates, all icon URLs 200, and — via a scratch Playwright script
+  toggling `context.setOffline(true)` — both a same-page offline reload and
+  a fresh offline navigation to a previously-unvisited route (`/add/2`)
+  render full app content instead of a network error.
+
 ## Notes for future maintainers / AI agents
 
 - **TypeScript is pinned to `^6.0.3`, not the `latest`/`7.x` line.**

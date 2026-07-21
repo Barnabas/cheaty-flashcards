@@ -6,7 +6,7 @@ Living plan document. Update checkboxes and add notes as phases land; don't dele
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-07-20 (Phase 5)
+Last updated: 2026-07-20 (Phase 6)
 
 ## Why this redesign
 
@@ -33,9 +33,9 @@ Current implementation state is the code itself (README.md has the architecture 
 
 ## Library changes
 
-**Added so far:** `vite-plus` (replaces `vite`, adds `vp check`/`vp test`/`vp run`/`vp pack`; re-exports Vitest 4.x under `vite-plus/test`), `pinia` + `pinia-plugin-persistedstate`, `@vue/test-utils`, `playwright` (devDependency, kept permanently as of Phase 4 for manual real-browser verification — was previously added/removed per phase, which was just churn since every phase needs it), `wrangler` (Phase 5, deploy tooling — see `wrangler.jsonc`).
+**Added so far:** `vite-plus` (replaces `vite`, adds `vp check`/`vp test`/`vp run`/`vp pack`; re-exports Vitest 4.x under `vite-plus/test`), `pinia` + `pinia-plugin-persistedstate`, `@vue/test-utils`, `playwright` (devDependency, kept permanently as of Phase 4 for manual real-browser verification — was previously added/removed per phase, which was just churn since every phase needs it), `wrangler` (Phase 5, deploy tooling — see `wrangler.jsonc`), `vite-plugin-pwa` (Phase 6, manifest + offline precaching — see `vite.config.ts`).
 
-**Not yet added:** `canvas-confetti` (+ `@types/canvas-confetti`) — planned for Phase 7. `vite-plugin-pwa` — planned for Phase 6.
+**Not yet added:** `canvas-confetti` (+ `@types/canvas-confetti`) — planned for Phase 7.
 
 **Removed:** nothing yet — `howler`, `@unhead/vue`, `@fontsource-variable/fredoka`, daisyUI/Tailwind all stay.
 
@@ -89,11 +89,13 @@ Home page replaced with a mastery-first dashboard: per-group fact-family heatmap
 
 New `wrangler.jsonc` (assets-only Worker, no script) plus `pnpm deploy` script; `not_found_handling: "single-page-application"` handles deep-link fallback now that routes are real paths. Vite+ has no dedicated Cloudflare deploy integration — plain `vp build` + `wrangler deploy` is the whole story. Verified with `wrangler deploy --dry-run` and a real-browser Playwright reload check on `vp preview`. Full detail: `plan-notes/phase-5.md`.
 
-### Phase 6 — PWA
+### Phase 6 — PWA — mostly done (2026-07-20), real-device check still open
 
-- [ ] `vite-plugin-pwa` with manifest (icons, theme colors) + offline precaching
-- [ ] Verify installability and offline play on a real device
-- [ ] Confirm interaction with Workers static-assets deploy (caching headers, service worker scope)
+- [x] `vite-plugin-pwa` with manifest (icons, theme colors) + offline precaching
+- [~] Verify installability and offline play on a real device — verified via Playwright browser automation (manifest validity, service-worker activation, offline reload, offline deep-link) against `vp preview`, **not** yet on an actual phone/tablet (none available this session). Meets Chrome's documented installability criteria on paper; treat "Add to Home Screen" as unconfirmed until checked for real.
+- [x] Confirm interaction with Workers static-assets deploy (caching headers, service worker scope)
+
+`generateSW` mode, `registerType: "autoUpdate"`. New icon set (`public/pwa-*.png`, `maskable-icon-512x512.png`, `apple-touch-icon.png`, `favicon.ico`/`favicon-*.png`) rendered from scratch-built source SVGs in `src/assets/icons/` via macOS's built-in `sips` SVG rasterizer — no image-processing dependency needed. Explicit `workbox.navigateFallback` + widened `globPatterns` (added `woff2`/`mp3`) were required for real offline SPA-route + sound support — the workbox defaults don't cover either out of the box. Verified via a scratch Playwright script against `vp preview` (manifest/service-worker/icons all resolve; offline reload and a fresh offline deep-link both render full content) and `wrangler deploy --dry-run` (icons/manifest/SW files upload cleanly through the existing Workers static-assets config from Phase 5, no changes needed there). Full detail: `plan-notes/phase-6.md`.
 
 ### Phase 7 — Visual polish
 

@@ -3,61 +3,97 @@ import IconHint from "~icons/feather/zap";
 import IconEliminate from "~icons/feather/eye-off";
 import IconRestart from "~icons/feather/repeat";
 import IconNext from "~icons/feather/arrow-right";
-import { ref, computed, onUnmounted } from "vue";
+import IconHome from "~icons/feather/home";
+import { ref, computed, watch, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
 import FoxMascot from "../components/mascot/FoxMascot.vue";
-import { generateLevel, sections } from "../sections";
-import { Level, Question, AnswerType, LevelSummary } from "../types";
+import FactFamilyShape from "../components/FactFamilyShape.vue";
+import {
+  GROUP_LABELS,
+  SESSION_MAX_QUESTIONS,
+  SessionFamilyStatus,
+  buildFollowUpQuestions,
+  buildInitialQuestions,
+  buildSessionTargetKeys,
+  hasReachedHardCap,
+  isSessionComplete,
+  permutationKey,
+  resolveTargetFamilies,
+} from "../session";
+import { Question, AnswerType, SessionSummary } from "../types";
 import { playSound, playChime } from "../sounds";
 import { celebrate, celebrateBig } from "../confetti";
-import { LevelMetrics, formatPercent, formatTime, shuffle } from "../utils";
+import { SessionMetrics, formatPercent, formatTime, shuffle } from "../utils";
 import { useProgressStore } from "../stores/progress";
 import { useMasteryStore } from "../stores/mastery";
 import { useStreakStore } from "../stores/streak";
-import { FAST_RESPONSE_MS, MAX_STAGE, MasteryOutcome } from "../mastery";
+import { useCurriculumStore } from "../stores/curriculum";
+import { FAST_RESPONSE_MS, FactFamily, MAX_STAGE, MasteryOutcome, OperatorGroup } from "../mastery";
+import { nextFamilyToUnlock } from "../curriculum";
 import { isStreakMilestone } from "../streak";
-import { LEVEL_CLEAR_THRESHOLD } from "../milestones";
+import { SESSION_CLEAR_THRESHOLD } from "../milestones";
 
-// Tiered cheat costs, spent from a per-level hint-token budget. Eliminating
+// Tiered cheat costs, spent from a per-session hint-token budget. Eliminating
 // two wrong answers still leaves recall work to do, so it's cheap; revealing
 // the answer outright skips recall entirely, so it costs much more.
 const START_HINT_TOKENS = 5;
 const ELIMINATE_COST = 1;
 const REVEAL_COST = 3;
+const FOLLOW_UP_BATCH_SIZE = 4;
 
 const props = defineProps<{
-  section: string;
-  level: string;
+  group: string;
 }>();
 const router = useRouter();
 const route = useRoute();
-const section = sections.find((s) => s.id === props.section);
+// vue-router reuses this component instance across param-only navigations
+// (e.g. a manual URL edit or back/forward between two /play/:group visits),
+// so `group` has to stay reactive to props.group rather than being captured
+// once — see the watcher below, which re-runs intro setup on any change.
+const group = computed<OperatorGroup | undefined>(() =>
+  props.group === "add" || props.group === "multiply" ? props.group : undefined,
+);
+
 const progress = useProgressStore();
 const mastery = useMasteryStore();
 const streak = useStreakStore();
+const curriculum = useCurriculumStore();
+
 // useHead() must be called once, synchronously during setup — calling it
-// again later from a click handler (e.g. "Try Again") throws, since Vue
-// doesn't restore injection context for plain event listener invocations.
-// Passing a ref lets startLevel() just update the title reactively instead.
+// again later from a click handler throws, since Vue doesn't restore
+// injection context for plain event listener invocations. Passing a ref lets
+// phase transitions update the title reactively instead.
 const pageTitle = ref("");
 useHead({ title: pageTitle });
+
+const phase = ref<"intro" | "active" | "outro">("intro");
+const highlightedKey = ref<string | null>(null);
+const focusInput = ref("");
+
+const questions = ref<Question[]>([]);
 const questionIndex = ref(0);
 const answerTypes = ref<Record<number, AnswerType>>({});
 const hintTokens = ref(0);
-const currentLevel = ref<Level>({ name: "?", level: 0, questions: [] });
-const summary = ref<LevelSummary | null>(null);
+const summary = ref<SessionSummary | null>(null);
 const isNewBest = ref(false);
 const hadWrongThisQuestion = ref(false);
 const hintUsedThisQuestion = ref(false);
 const streakMilestone = ref<number | null>(null);
-let metrics = new LevelMetrics();
+let metrics = new SessionMetrics();
 let streakMilestoneTimeout: ReturnType<typeof setTimeout>;
 
-// "Focus on my 7s and 8s": a comma-separated ?focus=7,8 query param seeds the
-// weighted family pool. "Mixed practice" (?mixed=1) pairs inverse operations
-// from the same fact-family group in one session.
+// The session's fixed target-family set, snapshotted at beginSession() so a
+// focus-input edit mid-session (not exposed in the UI, but defensive) can't
+// shift the goalposts underneath an in-progress session.
+const sessionFamilies = ref<FactFamily[]>([]);
+// One entry per (family, operator) permutation — both directions of every
+// target family must clear before the session can end.
+const sessionTargetKeys = ref<string[]>([]);
+const familyStatus = ref<Record<string, SessionFamilyStatus>>({});
+const stageBefore = ref<Record<string, number>>({});
+
 const focusNumbers = computed<number[] | undefined>(() => {
   const raw = route.query.focus;
   if (typeof raw !== "string") return undefined;
@@ -67,11 +103,20 @@ const focusNumbers = computed<number[] | undefined>(() => {
     .filter((n) => !Number.isNaN(n));
   return numbers.length > 0 ? numbers : undefined;
 });
-const mixed = computed(() => route.query.mixed === "1");
+
+const activeFamilies = computed<FactFamily[]>(() =>
+  group.value ? curriculum.activeFamilies(group.value) : [],
+);
+const targetFamilies = computed<FactFamily[]>(() =>
+  resolveTargetFamilies(activeFamilies.value, focusNumbers.value),
+);
+const bonusFamily = computed<FactFamily | undefined>(() =>
+  group.value ? nextFamilyToUnlock(group.value, curriculum.active[group.value]) : undefined,
+);
 
 const currentQuestion = computed<Question>(() => {
   return (
-    currentLevel.value.questions[questionIndex.value] || {
+    questions.value[questionIndex.value] || {
       operator: "+",
       familyKey: "",
       factors: [],
@@ -81,9 +126,7 @@ const currentQuestion = computed<Question>(() => {
   );
 });
 
-const currentAnswers = computed<number[]>(() => {
-  return currentQuestion.value.answers;
-});
+const currentAnswers = computed<number[]>(() => currentQuestion.value.answers);
 
 // Untried, not-yet-hidden wrong answers — what "Eliminate 2" has left to
 // hide. Once this runs out the button disables itself.
@@ -101,21 +144,32 @@ const canEliminate = computed(
 );
 const canReveal = computed(() => hintTokens.value >= REVEAL_COST);
 
-const personalBest = computed(() => {
-  return section ? progress.getPersonalBest(section.id, currentLevel.value.level) : undefined;
-});
+const personalBest = computed(() => (group.value ? progress.getBest(group.value) : undefined));
 
-if (section) {
-  startLevel(parseInt(props.level));
-} else {
-  router.push("/");
+function enterIntro() {
+  const g = group.value;
+  if (!g) return;
+  pageTitle.value = `${GROUP_LABELS[g]} - Practice`;
+  curriculum.ensureSeeded(g);
+  highlightedKey.value = curriculum.tryAutoUnlock(g, (key) => mastery.getFamily(key)) ?? null;
+  focusInput.value = typeof route.query.focus === "string" ? route.query.focus : "";
+  phase.value = "intro";
 }
+
+watch(
+  group,
+  (g) => {
+    if (g) {
+      enterIntro();
+    } else {
+      router.push("/");
+    }
+  },
+  { immediate: true },
+);
 
 onUnmounted(() => clearTimeout(streakMilestoneTimeout));
 
-// Cancels any in-flight milestone celebration — used both when a hint use
-// breaks the streak the toast was just celebrating, and when starting a
-// fresh level/attempt shouldn't carry over a toast from the last one.
 function dismissStreakMilestone() {
   streakMilestone.value = null;
   clearTimeout(streakMilestoneTimeout);
@@ -132,9 +186,6 @@ function answerButtonClass(index: number) {
   };
 }
 
-// Colors track what's actually still affordable, not a raw token count —
-// with tiered costs, "2 tokens left" means very different things depending
-// on whether Reveal (3) is still in reach.
 function hintClass() {
   return {
     "text-success": hintTokens.value >= REVEAL_COST,
@@ -157,11 +208,9 @@ function recordFamilyOutcome() {
     outcome = elapsed < FAST_RESPONSE_MS ? "correct-fast" : "correct-slow";
   }
   const familyKey = currentQuestion.value.familyKey;
-  const stageBefore = mastery.getFamily(familyKey).stage;
+  const stageBeforeThis = mastery.getFamily(familyKey).stage;
   mastery.recordAttempt(familyKey, outcome);
-  // Celebrate the first time a family reaches full mastery — Ziggy's out of
-  // tricks for that one now (see dashboard.ts's denFlavor()).
-  if (stageBefore < MAX_STAGE && mastery.getFamily(familyKey).stage >= MAX_STAGE) {
+  if (stageBeforeThis < MAX_STAGE && mastery.getFamily(familyKey).stage >= MAX_STAGE) {
     playChime("mastery_up");
   }
 }
@@ -180,6 +229,27 @@ function recordStreak() {
   }
 }
 
+function ensureQueueHasNext() {
+  if (!group.value) return;
+  if (
+    questionIndex.value >= questions.value.length &&
+    questions.value.length < SESSION_MAX_QUESTIONS
+  ) {
+    const batchSize = Math.min(
+      FOLLOW_UP_BATCH_SIZE,
+      SESSION_MAX_QUESTIONS - questions.value.length,
+    );
+    const batch = buildFollowUpQuestions(
+      group.value,
+      sessionFamilies.value,
+      familyStatus.value,
+      batchSize,
+      { getMastery: (key) => mastery.getFamily(key) },
+    );
+    questions.value.push(...batch);
+  }
+}
+
 function chooseAnswer(index: number) {
   if (
     answerTypes.value[index] !== "right" &&
@@ -188,8 +258,15 @@ function chooseAnswer(index: number) {
     metrics.answerQuestion("right");
     recordFamilyOutcome();
     recordStreak();
-    if (questionIndex.value + 1 >= currentLevel.value.questions.length) {
-      finishLevel();
+    const permKey = permutationKey(currentQuestion.value.familyKey, currentQuestion.value.operator);
+    familyStatus.value[permKey] = hintUsedThisQuestion.value ? "retry" : "clean";
+
+    const elapsed = Date.now() - metrics.sessionStart;
+    if (
+      isSessionComplete(familyStatus.value, sessionTargetKeys.value) ||
+      hasReachedHardCap(metrics.questionsTotal, elapsed)
+    ) {
+      finishSession();
     } else {
       playSound("correct");
       currentAnswers.value.forEach((_, index2) => {
@@ -198,6 +275,7 @@ function chooseAnswer(index: number) {
       setTimeout(() => {
         metrics.beginQuestion();
         questionIndex.value += 1;
+        ensureQueueHasNext();
         answerTypes.value = {};
         hadWrongThisQuestion.value = false;
         hintUsedThisQuestion.value = false;
@@ -210,24 +288,29 @@ function chooseAnswer(index: number) {
     if (!hadWrongThisQuestion.value) {
       hadWrongThisQuestion.value = true;
       mastery.recordAttempt(currentQuestion.value.familyKey, "wrong");
+      const permKey = permutationKey(
+        currentQuestion.value.familyKey,
+        currentQuestion.value.operator,
+      );
+      familyStatus.value[permKey] = "retry";
     }
   }
 }
 
-function startLevel(levelId: number) {
-  if (!section) return;
-  pageTitle.value = `${section.name} - Level ${levelId}`;
-  playSound("level_start");
+function beginSession() {
+  if (!group.value) return;
+  sessionFamilies.value = targetFamilies.value;
+  sessionTargetKeys.value = buildSessionTargetKeys(group.value, sessionFamilies.value);
+  stageBefore.value = Object.fromEntries(
+    sessionFamilies.value.map((f) => [f.key, mastery.getFamily(f.key).stage]),
+  );
+  familyStatus.value = Object.fromEntries(sessionTargetKeys.value.map((key) => [key, "pending"]));
 
-  metrics = new LevelMetrics();
+  playSound("level_start");
+  metrics = new SessionMetrics();
   metrics.beginQuestion();
 
-  currentLevel.value = generateLevel(section, {
-    level: levelId,
-    questionCount: 10,
-    answerCount: 5,
-    focusNumbers: focusNumbers.value,
-    mixed: mixed.value,
+  questions.value = buildInitialQuestions(group.value, sessionFamilies.value, {
     getMastery: (key) => mastery.getFamily(key),
   });
   hintTokens.value = START_HINT_TOKENS;
@@ -237,35 +320,47 @@ function startLevel(levelId: number) {
   dismissStreakMilestone();
   hadWrongThisQuestion.value = false;
   hintUsedThisQuestion.value = false;
+  phase.value = "active";
 }
 
-function finishLevel() {
+function finishSession() {
+  if (!group.value) return;
   playSound("level_end");
-  summary.value = metrics.endLevel();
-  isNewBest.value = section
-    ? progress.recordLevelResult(section.id, currentLevel.value.level, summary.value)
-    : false;
+  summary.value = metrics.endSession();
+  isNewBest.value = progress.recordSessionResult(group.value, summary.value);
   if (isNewBest.value) {
     playChime("badge");
     celebrateBig();
-  } else if (summary.value.percentCorrect >= LEVEL_CLEAR_THRESHOLD) {
+  } else if (summary.value.percentCorrect >= SESSION_CLEAR_THRESHOLD) {
     celebrate();
   }
+  phase.value = "outro";
 }
 
-function nextLevel() {
-  const next = currentLevel.value.level + 1;
-  if (section && next <= 8) {
-    router.push({ path: `/${section.id}/${next}`, query: route.query });
-    startLevel(next);
-  } else {
-    router.push("/");
-  }
+function replaySession() {
+  beginSession();
 }
 
-// Both hint tiers still hold the family's mastery stage and grant no credit
-// for this question — see recordFamilyOutcome — and break the cheat-free
-// streak immediately, rather than waiting for the question to resolve.
+function advanceSession() {
+  enterIntro();
+}
+
+function goHome() {
+  router.push("/");
+}
+
+function addBonusFamily() {
+  if (!group.value) return;
+  const unlocked = curriculum.unlockBonus(group.value);
+  if (unlocked) highlightedKey.value = unlocked.key;
+}
+
+function applyFocus() {
+  if (!group.value) return;
+  const trimmed = focusInput.value.trim();
+  router.push({ path: `/play/${group.value}`, query: trimmed ? { focus: trimmed } : {} });
+}
+
 function markCheated() {
   hintUsedThisQuestion.value = true;
   streak.recordCheat();
@@ -298,24 +393,64 @@ function revealAnswer() {
 }
 </script>
 <template>
-  <NavBreadcrumbs :section="section" :level="props.level" />
-  <section v-if="section">
-    <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="summary">
+  <NavBreadcrumbs :group="group" />
+  <section v-if="group">
+    <div v-if="phase === 'intro'" class="container mt-8 flex flex-col gap-6">
+      <h1 class="font-display text-2xl font-bold">{{ GROUP_LABELS[group] }}</h1>
+      <div class="flex flex-wrap gap-4" data-testid="intro-families">
+        <FactFamilyShape
+          v-for="family in targetFamilies"
+          :key="family.key"
+          :family="family"
+          :stage="mastery.getFamily(family.key).stage"
+          :highlight="family.key === highlightedKey"
+        />
+      </div>
+      <div class="flex flex-wrap items-center gap-4">
+        <button
+          v-if="bonusFamily"
+          class="btn btn-secondary"
+          @click="addBonusFamily()"
+          data-testid="bonus-fact-button"
+        >
+          Ask Ziggy for a bonus fact
+        </button>
+        <form class="flex items-center gap-2" @submit.prevent="applyFocus()">
+          <input
+            v-model="focusInput"
+            type="text"
+            placeholder="Focus on numbers (e.g. 7,8)"
+            class="input input-bordered"
+          />
+          <button class="btn" type="submit">Go</button>
+        </form>
+      </div>
+      <button
+        class="btn btn-primary btn-lg self-start"
+        @click="beginSession()"
+        data-testid="start-session-button"
+      >
+        Start practicing
+      </button>
+    </div>
+    <div
+      v-else-if="phase === 'outro'"
+      class="mt-16 mx-4 max-w-2xl md:mx-auto"
+      data-testid="session-summary"
+    >
       <div class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2">
         <div class="flex items-center bg-secondary -mt-4 -mx-4 p-2">
           <FoxMascot pose="cheer" class="h-10 w-10 shrink-0" label="Ziggy cheering" />
           <div class="font-display font-medium text-center text-2xl flex-1">
-            {{ section.name }} Level {{ currentLevel.level }} Complete
+            {{ GROUP_LABELS[group] }} Session Complete
           </div>
           <FoxMascot pose="cheer" class="h-10 w-10 shrink-0" label="Ziggy cheering" />
         </div>
-        <table class="table table-lg table-fixed">
+        <table class="table table-lg table-fixed" v-if="summary">
           <tbody>
             <tr>
               <td class="text-right font-bold">Score:</td>
-              <td>
-                {{ formatPercent(summary.percentCorrect) }}
-              </td>
+              <td>{{ formatPercent(summary.percentCorrect) }}</td>
             </tr>
             <tr v-if="personalBest">
               <td class="text-right font-bold">Personal Best:</td>
@@ -325,8 +460,8 @@ function revealAnswer() {
               </td>
             </tr>
             <tr>
-              <td class="text-right font-bold">Level Time:</td>
-              <td>{{ formatTime(summary.levelTime) }}</td>
+              <td class="text-right font-bold">Session Time:</td>
+              <td>{{ formatTime(summary.sessionTime) }}</td>
             </tr>
             <tr>
               <td class="text-right font-bold">Time/question:</td>
@@ -337,15 +472,31 @@ function revealAnswer() {
             </tr>
           </tbody>
         </table>
-        <div class="p-2 text-center">{{ summary.message }}</div>
-        <div class="flex justify-between">
-          <button class="btn" @click="startLevel(currentLevel.level)">
+        <div class="p-2 text-center">{{ summary?.message }}</div>
+        <div class="flex flex-wrap gap-4 p-2 justify-center" data-testid="family-recap">
+          <div
+            v-for="family in sessionFamilies"
+            :key="family.key"
+            class="flex flex-col items-center gap-1"
+          >
+            <FactFamilyShape :family="family" :stage="mastery.getFamily(family.key).stage" />
+            <span class="text-xs">
+              {{ stageBefore[family.key] }} → {{ mastery.getFamily(family.key).stage }}
+            </span>
+          </div>
+        </div>
+        <div class="flex justify-between flex-wrap gap-2">
+          <button class="btn" @click="replaySession()" data-testid="replay-button">
             <IconRestart />
-            Try Again
+            Replay
           </button>
-          <button v-if="currentLevel.level < 8" class="btn btn-primary" @click="nextLevel()">
+          <button class="btn btn-primary" @click="advanceSession()" data-testid="advance-button">
             <IconNext />
-            Next Level
+            Advance
+          </button>
+          <button class="btn" @click="goHome()" data-testid="home-button">
+            <IconHome />
+            Home
           </button>
         </div>
       </div>
@@ -416,7 +567,7 @@ function revealAnswer() {
         <progress
           class="w-2/3 progress progress-primary"
           :value="questionIndex + 1"
-          :max="currentLevel.questions.length"
+          :max="Math.max(questions.length, questionIndex + 1)"
         />
       </div>
     </div>

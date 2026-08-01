@@ -1,13 +1,11 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 import Home from "./pages/HomePage.vue";
-import Section from "./pages/SectionPage.vue";
-import Level from "./pages/LevelPage.vue";
+import Play from "./pages/PlayPage.vue";
 
 const routes = [
   { path: "/", component: Home },
-  { path: "/:section", component: Section, props: true },
-  { path: "/:section/:level", component: Level, props: true },
+  { path: "/play/:group", component: Play, props: true },
 ];
 export const router = createRouter({
   history: createWebHistory(),

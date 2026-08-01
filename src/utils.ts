@@ -1,4 +1,4 @@
-import { AnswerType, LevelSummary } from "./types";
+import { AnswerType, SessionSummary } from "./types";
 
 export function shuffle<T>(array: T[]): T[] {
   return array
@@ -22,10 +22,10 @@ export function formatTime(ms: number) {
   }
 }
 
-export class LevelMetrics {
+export class SessionMetrics {
   questionsTotal: number = 0;
   questionsCorrect: number = 0;
-  levelStart: number = Date.now();
+  sessionStart: number = Date.now();
   questionStart: number = 0;
   questionTimeTotal: number = 0;
   questionTimeMax: number = 0;
@@ -48,7 +48,7 @@ export class LevelMetrics {
     }
   }
 
-  endLevel(): LevelSummary {
+  endSession(): SessionSummary {
     const { questionsCorrect, questionsTotal, questionTimeTotal, questionTimeMax } = this;
     const percentCorrect = questionsCorrect / questionsTotal;
 
@@ -62,7 +62,7 @@ export class LevelMetrics {
     if (percentCorrect > 0.99) message = "🤩 Wow! Perfect score!";
 
     return {
-      levelTime: Date.now() - this.levelStart,
+      sessionTime: Date.now() - this.sessionStart,
       questionsCorrect,
       percentCorrect,
       questionTimeAverage: questionTimeTotal / questionsTotal,

@@ -5,9 +5,10 @@ import { buildProgressExport, parseProgressExport, applyProgressExport } from ".
 function sampleStores() {
   return {
     settings: { soundEnabled: false },
-    progress: { personalBests: { "add:1": { percentCorrect: 0.9 } as any } },
+    progress: { bests: { add: { percentCorrect: 0.9 } as any } },
     mastery: { families: { "add:3,6,9": { stage: 4 } as any } },
     streak: { current: 3, best: 12 },
+    curriculum: { active: { add: ["add:2,2,4", "add:2,3,5"], multiply: [] } },
   };
 }
 
@@ -23,8 +24,10 @@ describe("buildProgressExport / parseProgressExport round trip", () => {
   it("copies nested objects rather than aliasing the store's own state", () => {
     const stores = sampleStores();
     const exported = buildProgressExport(stores);
-    stores.progress.personalBests["add:1"].percentCorrect = 0;
-    expect(exported.progress.personalBests["add:1"].percentCorrect).toBe(0.9);
+    stores.progress.bests["add"].percentCorrect = 0;
+    stores.curriculum.active.add.push("add:9,9,18");
+    expect(exported.progress.bests["add"]!.percentCorrect).toBe(0.9);
+    expect(exported.curriculum.active.add).toEqual(["add:2,2,4", "add:2,3,5"]);
   });
 
   // The real bug this phase hit: store state is a Vue reactive Proxy in
@@ -35,14 +38,13 @@ describe("buildProgressExport / parseProgressExport round trip", () => {
   it("builds an export from reactive (Proxy-wrapped) store state without throwing", () => {
     const stores = {
       settings: reactive({ soundEnabled: true }),
-      progress: reactive({ personalBests: sampleStores().progress.personalBests }),
+      progress: reactive({ bests: sampleStores().progress.bests }),
       mastery: reactive({ families: sampleStores().mastery.families }),
       streak: reactive({ current: 1, best: 5 }),
+      curriculum: reactive({ active: sampleStores().curriculum.active }),
     };
     expect(() => buildProgressExport(stores)).not.toThrow();
-    expect(buildProgressExport(stores).progress.personalBests).toEqual(
-      sampleStores().progress.personalBests,
-    );
+    expect(buildProgressExport(stores).progress.bests).toEqual(sampleStores().progress.bests);
   });
 });
 
@@ -61,6 +63,12 @@ describe("parseProgressExport validation", () => {
     expect(() => parseProgressExport(JSON.stringify(wrongVersion))).toThrow();
   });
 
+  it("rejects an old v1 export missing the curriculum field", () => {
+    const exported = buildProgressExport(sampleStores());
+    const { curriculum: _curriculum, ...withoutCurriculum } = exported;
+    expect(() => parseProgressExport(JSON.stringify(withoutCurriculum))).toThrow();
+  });
+
   it("accepts an untampered export", () => {
     const exported = buildProgressExport(sampleStores());
     expect(() => parseProgressExport(JSON.stringify(exported))).not.toThrow();
@@ -70,7 +78,7 @@ describe("parseProgressExport validation", () => {
     const exported = buildProgressExport(sampleStores());
     const tampered = {
       ...exported,
-      progress: { personalBests: { "add:1": { percentCorrect: 1.0 } } },
+      progress: { bests: { add: { percentCorrect: 1.0 } } },
     };
     expect(() => parseProgressExport(JSON.stringify(tampered))).toThrow(/checksum/i);
   });
@@ -88,16 +96,18 @@ describe("applyProgressExport", () => {
     const exported = buildProgressExport(source);
     const target = {
       settings: { soundEnabled: true },
-      progress: { personalBests: {} },
+      progress: { bests: {} },
       mastery: { families: {} },
       streak: { current: 0, best: 0 },
+      curriculum: { active: { add: [], multiply: [] } },
     };
 
     applyProgressExport(exported, target);
 
     expect(target.settings.soundEnabled).toBe(false);
-    expect(target.progress.personalBests).toEqual(source.progress.personalBests);
+    expect(target.progress.bests).toEqual(source.progress.bests);
     expect(target.mastery.families).toEqual(source.mastery.families);
     expect(target.streak).toEqual({ current: 3, best: 12 });
+    expect(target.curriculum.active).toEqual(source.curriculum.active);
   });
 });

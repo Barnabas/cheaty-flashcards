@@ -3,16 +3,12 @@ import { computed } from "vue";
 import OperatorGroupPanel from "../components/OperatorGroupPanel.vue";
 import ProgressBackup from "../components/ProgressBackup.vue";
 import FoxMascot from "../components/mascot/FoxMascot.vue";
-import { sections } from "../sections";
-import { operatorGroup, OperatorGroup } from "../mastery";
+import { OperatorGroup } from "../mastery";
 import { useStreakStore } from "../stores/streak";
 
 const streak = useStreakStore();
 
-const groups = (["add", "multiply"] as OperatorGroup[]).map((group) => ({
-  group,
-  sections: sections.filter((s) => operatorGroup(s.operator) === group),
-}));
+const groups: OperatorGroup[] = ["add", "multiply"];
 const bestStreak = computed(() => streak.best);
 </script>
 <template>
@@ -31,12 +27,7 @@ const bestStreak = computed(() => streak.best);
     <div v-if="bestStreak > 0" class="text-center text-lg" data-testid="best-streak">
       🦊 Best time you've outfoxed Ziggy: {{ bestStreak }} in a row
     </div>
-    <OperatorGroupPanel
-      v-for="g in groups"
-      :key="g.group"
-      :group="g.group"
-      :sections="g.sections"
-    />
+    <OperatorGroupPanel v-for="group in groups" :key="group" :group="group" />
     <div class="card bg-base-100 shadow-md p-4">
       <h2 class="font-display text-lg font-bold mb-2">Backup progress</h2>
       <ProgressBackup />

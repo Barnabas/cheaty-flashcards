@@ -46,7 +46,7 @@ const settings = useSettingsStore();
           Meet <b>Ziggy the Fox</b> — a sly trickster who's always got a shortcut up his sleeve.
           Answer correctly to move on, or ask Ziggy for a favor: <b>Eliminate 2</b> removes two
           wrong answers for 1 hint token, <b>Reveal</b> flashes the correct answer for 3 tokens.
-          Each level starts with 5 tokens.
+          Each practice session starts with 5 tokens.
         </span>
       </p>
       <p class="py-2">

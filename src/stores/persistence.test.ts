@@ -6,7 +6,8 @@ import { useSettingsStore } from "./settings";
 import { useProgressStore } from "./progress";
 import { useMasteryStore } from "./mastery";
 import { useStreakStore } from "./streak";
-import { LevelSummary } from "../types";
+import { useCurriculumStore } from "./curriculum";
+import { SessionSummary } from "../types";
 
 // Pinia only activates plugins once installed on a real app (pinia.use()
 // before that just queues them), so each "reload" needs a fresh app + pinia
@@ -18,8 +19,8 @@ function freshPinia() {
   return pinia;
 }
 
-const sampleSummary: LevelSummary = {
-  levelTime: 5000,
+const sampleSummary: SessionSummary = {
+  sessionTime: 5000,
   questionsCorrect: 9,
   percentCorrect: 0.9,
   questionTimeAverage: 500,
@@ -45,11 +46,11 @@ describe("store persistence round-trips", () => {
   it("survives a simulated reload for personal bests", () => {
     freshPinia();
     const progress = useProgressStore();
-    progress.recordLevelResult("multiply", 2, sampleSummary);
+    progress.recordSessionResult("multiply", sampleSummary);
     progress.$persist();
 
     freshPinia();
-    expect(useProgressStore().getPersonalBest("multiply", 2)?.percentCorrect).toBe(0.9);
+    expect(useProgressStore().getBest("multiply")?.percentCorrect).toBe(0.9);
   });
 
   it("survives a simulated reload for mastery data", () => {
@@ -77,6 +78,17 @@ describe("store persistence round-trips", () => {
     freshPinia();
     expect(useStreakStore().current).toBe(2);
     expect(useStreakStore().best).toBe(2);
+  });
+
+  it("survives a simulated reload for the active curriculum", () => {
+    freshPinia();
+    const curriculum = useCurriculumStore();
+    curriculum.ensureSeeded("add");
+    const seeded = [...curriculum.active.add];
+    curriculum.$persist();
+
+    freshPinia();
+    expect(useCurriculumStore().active.add).toEqual(seeded);
   });
 
   it("defaults to fresh state when nothing was ever persisted", () => {

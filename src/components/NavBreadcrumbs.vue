@@ -1,10 +1,9 @@
 <script lang="ts" setup>
-import { getLevelName } from "../sections";
-import { Section } from "../types";
+import { OperatorGroup } from "../mastery";
+import { GROUP_LABELS } from "../session";
 
 const props = defineProps<{
-  section?: Section;
-  level?: string;
+  group?: OperatorGroup;
 }>();
 </script>
 <template>
@@ -13,13 +12,8 @@ const props = defineProps<{
       <li>
         <RouterLink to="/">Home</RouterLink>
       </li>
-      <li v-if="props.section">
-        <RouterLink :to="'/' + props.section.id">
-          {{ props.section.name }}
-        </RouterLink>
-      </li>
-      <li v-if="props.level">
-        {{ getLevelName(props.section, parseInt(props.level)) }}
+      <li v-if="props.group">
+        {{ GROUP_LABELS[props.group] }}
       </li>
     </ul>
   </div>

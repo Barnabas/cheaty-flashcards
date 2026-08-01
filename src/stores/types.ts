@@ -8,9 +8,9 @@ export type FamilyMastery = {
   lastSeen: number | null;
 };
 
-export type PersonalBest = {
+export type SessionBest = {
   percentCorrect: number;
-  levelTime: number;
+  sessionTime: number;
   questionTimeAverage: number;
   achievedAt: number;
   timesPlayed: number;

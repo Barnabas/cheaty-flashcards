@@ -1,32 +1,28 @@
 import { defineStore } from "pinia";
-import { LevelSummary } from "../types";
-import { PersonalBest } from "./types";
-
-function bestKey(sectionId: string, level: number) {
-  return `${sectionId}:${level}`;
-}
+import { SessionSummary } from "../types";
+import { OperatorGroup } from "../mastery";
+import { SessionBest } from "./types";
 
 export const useProgressStore = defineStore("progress", {
   state: () => ({
-    personalBests: {} as Record<string, PersonalBest>,
+    bests: {} as Partial<Record<OperatorGroup, SessionBest>>,
   }),
   actions: {
-    getPersonalBest(sectionId: string, level: number): PersonalBest | undefined {
-      return this.personalBests[bestKey(sectionId, level)];
+    getBest(group: OperatorGroup): SessionBest | undefined {
+      return this.bests[group];
     },
     // Returns true when this result beat the existing personal best.
-    recordLevelResult(sectionId: string, level: number, summary: LevelSummary): boolean {
-      const key = bestKey(sectionId, level);
-      const existing = this.personalBests[key];
+    recordSessionResult(group: OperatorGroup, summary: SessionSummary): boolean {
+      const existing = this.bests[group];
       const isNewBest =
         !existing ||
         summary.percentCorrect > existing.percentCorrect ||
         (summary.percentCorrect === existing.percentCorrect &&
-          summary.levelTime < existing.levelTime);
+          summary.sessionTime < existing.sessionTime);
 
-      this.personalBests[key] = {
+      this.bests[group] = {
         percentCorrect: isNewBest ? summary.percentCorrect : existing.percentCorrect,
-        levelTime: isNewBest ? summary.levelTime : existing.levelTime,
+        sessionTime: isNewBest ? summary.sessionTime : existing.sessionTime,
         questionTimeAverage: isNewBest ? summary.questionTimeAverage : existing.questionTimeAverage,
         achievedAt: isNewBest ? Date.now() : existing.achievedAt,
         timesPlayed: (existing?.timesPlayed ?? 0) + 1,

@@ -183,4 +183,21 @@ describe("selectFamilies", () => {
     });
     expect(result).toHaveLength(10);
   });
+
+  it("boosts families via weightMultiplier on top of mastery weight", () => {
+    const boosted = pool[0];
+    let seed = 5;
+    const rng = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    const result = selectFamilies(pool, () => undefined, 2000, {
+      rng,
+      weightMultiplier: (key) => (key === boosted.key ? 10 : 1),
+    });
+    const boostedCount = result.filter((f) => f.key === boosted.key).length;
+    // boosted family weight 10 vs 5 others at weight 1 each (total 5) ->
+    // expected share is 10/15 ~= 0.67, well above an unboosted ~1/6.
+    expect(boostedCount / result.length).toBeGreaterThan(0.5);
+  });
 });

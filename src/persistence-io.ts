@@ -2,10 +2,17 @@
 // logic lives here so it's testable without touching the DOM File APIs;
 // components/ProgressBackup.vue owns the download/file-picker glue.
 import { toRaw } from "vue";
-import { FamilyMastery, PersonalBest } from "./stores/types";
+import { OperatorGroup } from "./mastery";
+import { FamilyMastery, SessionBest } from "./stores/types";
 import { fnv1aHash } from "./checksum";
 
-export const PROGRESS_EXPORT_VERSION = 1;
+// Bumped from 1 -> 2 for Phase 8's progress/curriculum schema change.
+// Deliberately not migrated: parseProgressExport already hard-rejects on a
+// version mismatch, so an old v1 file just fails import cleanly with a
+// friendly "doesn't look like a progress export" message (see PLAN.md's
+// Phase 8 open questions — dropping old data on this upgrade is fine, the
+// only real player is the niece this was built for).
+export const PROGRESS_EXPORT_VERSION = 2;
 
 // The payload whose contents the checksum actually covers — everything in
 // ProgressExport except the checksum field itself.
@@ -13,18 +20,20 @@ export type ProgressPayload = {
   version: typeof PROGRESS_EXPORT_VERSION;
   exportedAt: number;
   settings: { soundEnabled: boolean };
-  progress: { personalBests: Record<string, PersonalBest> };
+  progress: { bests: Partial<Record<OperatorGroup, SessionBest>> };
   mastery: { families: Record<string, FamilyMastery> };
   streak: { current: number; best: number };
+  curriculum: { active: Record<OperatorGroup, string[]> };
 };
 
 export type ProgressExport = ProgressPayload & { checksum: string };
 
 type StoreSnapshot = {
   settings: { soundEnabled: boolean };
-  progress: { personalBests: Record<string, PersonalBest> };
+  progress: { bests: Partial<Record<OperatorGroup, SessionBest>> };
   mastery: { families: Record<string, FamilyMastery> };
   streak: { current: number; best: number };
+  curriculum: { active: Record<OperatorGroup, string[]> };
 };
 
 function checksumFor(payload: ProgressPayload): string {
@@ -40,9 +49,10 @@ export function buildProgressExport(stores: StoreSnapshot): ProgressExport {
     // Proxy directly, but toRaw() unwraps it back to the plain object the
     // store actions actually assigned, which structuredClone can then clone
     // freely (so mutating the store later doesn't mutate this snapshot).
-    progress: { personalBests: structuredClone(toRaw(stores.progress.personalBests)) },
+    progress: { bests: structuredClone(toRaw(stores.progress.bests)) },
     mastery: { families: structuredClone(toRaw(stores.mastery.families)) },
     streak: { current: stores.streak.current, best: stores.streak.best },
+    curriculum: { active: structuredClone(toRaw(stores.curriculum.active)) },
   };
   return { ...payload, checksum: checksumFor(payload) };
 }
@@ -66,6 +76,7 @@ export function parseProgressExport(json: string): ProgressExport {
     typeof (data as ProgressExport).progress !== "object" ||
     typeof (data as ProgressExport).mastery !== "object" ||
     typeof (data as ProgressExport).streak !== "object" ||
+    typeof (data as ProgressExport).curriculum !== "object" ||
     typeof (data as ProgressExport).checksum !== "string"
   ) {
     throw new Error("That file doesn't look like a Cheaty Flashcards progress export.");
@@ -80,8 +91,9 @@ export function parseProgressExport(json: string): ProgressExport {
 
 export function applyProgressExport(data: ProgressExport, stores: StoreSnapshot) {
   stores.settings.soundEnabled = data.settings.soundEnabled;
-  stores.progress.personalBests = { ...data.progress.personalBests };
+  stores.progress.bests = { ...data.progress.bests };
   stores.mastery.families = { ...data.mastery.families };
   stores.streak.current = data.streak.current;
   stores.streak.best = data.streak.best;
+  stores.curriculum.active = { ...data.curriculum.active };
 }

@@ -109,6 +109,10 @@ export function weightedPick<T>(items: T[], weights: number[], rng: () => number
 export type SelectFamiliesOptions = {
   focusNumbers?: number[];
   rng?: () => number;
+  // Extra per-family weight scaling on top of the mastery-driven weight —
+  // e.g. a session generator boosting families it wants re-drilled this
+  // session. Defaults to a no-op (weight ×1) for existing callers.
+  weightMultiplier?: (key: string) => number;
 };
 
 // Weighted sample (with replacement) of `count` families from `pool`, biased
@@ -121,7 +125,7 @@ export function selectFamilies(
   count: number,
   options: SelectFamiliesOptions = {},
 ): FactFamily[] {
-  const { focusNumbers, rng = Math.random } = options;
+  const { focusNumbers, rng = Math.random, weightMultiplier = () => 1 } = options;
   let candidates = pool;
   if (focusNumbers && focusNumbers.length > 0) {
     const focusSet = new Set(focusNumbers);
@@ -129,7 +133,7 @@ export function selectFamilies(
     if (filtered.length > 0) candidates = filtered;
   }
 
-  const weights = candidates.map((f) => familyWeight(getMastery(f.key)));
+  const weights = candidates.map((f) => familyWeight(getMastery(f.key)) * weightMultiplier(f.key));
   const result: FactFamily[] = [];
   for (let i = 0; i < count; i++) {
     result.push(weightedPick(candidates, weights, rng));

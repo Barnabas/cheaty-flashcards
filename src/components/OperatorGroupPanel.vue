@@ -5,32 +5,33 @@ import MasteryGrid from "./MasteryGrid.vue";
 import FoxMascot from "./mascot/FoxMascot.vue";
 import { useMasteryStore } from "../stores/mastery";
 import { useProgressStore } from "../stores/progress";
-import { OperatorGroup, familyPool } from "../mastery";
+import { useCurriculumStore } from "../stores/curriculum";
+import { OperatorGroup } from "../mastery";
+import { GROUP_LABELS } from "../session";
 import { masterySummary, denFlavor, denPose } from "../dashboard";
-import { highestClearedLevel } from "../milestones";
-import { Section } from "../types";
+import { hasClearedGroup } from "../milestones";
+import { formatPercent } from "../utils";
 
 const props = defineProps<{
   group: OperatorGroup;
-  sections: Section[];
 }>();
 
 const mastery = useMasteryStore();
 const progress = useProgressStore();
-const MAX_LEVEL = 8;
+const curriculum = useCurriculumStore();
+// Seeds the starter curriculum on first visit, even before the player has
+// ever pressed Play — so the "X / Y facts mastered" summary reflects the
+// starter set from the very first Home page view, not an empty pool.
+curriculum.ensureSeeded(props.group);
 
-const title = computed(() => props.sections.map((s) => s.name).join(" & "));
+const title = computed(() => GROUP_LABELS[props.group]);
 const summary = computed(() =>
-  masterySummary(familyPool(props.group), (key) => mastery.getFamily(key)),
+  masterySummary(curriculum.activeFamilies(props.group), (key) => mastery.getFamily(key)),
 );
 const flavor = computed(() => denFlavor(summary.value));
 const pose = computed(() => denPose(summary.value));
-
-function levelBadge(sectionId: string) {
-  return highestClearedLevel(sectionId, MAX_LEVEL, (id, level) =>
-    progress.getPersonalBest(id, level),
-  );
-}
+const best = computed(() => progress.getBest(props.group));
+const cleared = computed(() => hasClearedGroup(props.group, (g) => progress.getBest(g)));
 </script>
 <template>
   <div
@@ -55,18 +56,12 @@ function levelBadge(sectionId: string) {
         </div>
       </div>
     </div>
-    <div class="flex flex-wrap gap-4">
-      <div v-for="section in sections" :key="section.id" class="flex items-center gap-2">
-        <RouterLink class="btn btn-sm" :to="'/' + section.id">{{ section.name }}</RouterLink>
-        <span
-          v-if="levelBadge(section.id) > 0"
-          class="badge badge-success gap-1"
-          data-testid="level-badge"
-        >
-          <IconAward class="w-4 h-4" />
-          Level {{ levelBadge(section.id) }}
-        </span>
-      </div>
+    <div class="flex flex-wrap items-center gap-4">
+      <RouterLink class="btn btn-primary" :to="'/play/' + group">Play</RouterLink>
+      <span v-if="cleared" class="badge badge-success gap-1" data-testid="session-badge">
+        <IconAward class="w-4 h-4" />
+        Best: {{ formatPercent(best!.percentCorrect) }}
+      </span>
     </div>
   </div>
 </template>

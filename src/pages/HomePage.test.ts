@@ -6,11 +6,12 @@ import HomePage from "./HomePage.vue";
 import { useMasteryStore } from "../stores/mastery";
 import { useProgressStore } from "../stores/progress";
 import { useStreakStore } from "../stores/streak";
-import { LevelSummary } from "../types";
+import { seedStarterFamilies } from "../curriculum";
+import { SessionSummary } from "../types";
 
-function summary(percentCorrect: number): LevelSummary {
+function summary(percentCorrect: number): SessionSummary {
   return {
-    levelTime: 1000,
+    sessionTime: 1000,
     questionsCorrect: 9,
     percentCorrect,
     questionTimeAverage: 100,
@@ -44,7 +45,8 @@ describe("HomePage dashboard", () => {
   it("reflects mastery store fixtures in the facts-mastered summary", async () => {
     setActivePinia(createPinia());
     const mastery = useMasteryStore();
-    for (let i = 0; i < 5; i++) mastery.recordAttempt("add:3,6,9", "correct-fast");
+    const starterKey = seedStarterFamilies("add")[1].key;
+    for (let i = 0; i < 5; i++) mastery.recordAttempt(starterKey, "correct-fast");
 
     const router = createRouter({
       history: createMemoryHistory(),
@@ -56,14 +58,14 @@ describe("HomePage dashboard", () => {
 
     const additionPanel = wrapper.findAll('[data-testid="operator-group-panel"]')[0];
     expect(additionPanel.get('[data-testid="mastery-summary"]').text()).toContain(
-      "1 / 36 facts mastered",
+      `1 / ${seedStarterFamilies("add").length} facts mastered`,
     );
   });
 
-  it("shows a level badge once a section clears the threshold, and none before", async () => {
+  it("shows a session badge once a group clears the threshold, and none before", async () => {
     setActivePinia(createPinia());
     const progress = useProgressStore();
-    progress.recordLevelResult("multiply", 3, summary(0.85));
+    progress.recordSessionResult("multiply", summary(0.85));
 
     const router = createRouter({
       history: createMemoryHistory(),
@@ -74,9 +76,9 @@ describe("HomePage dashboard", () => {
     const wrapper = mount(HomePage, { global: { plugins: [router] } });
 
     const multiplyPanel = wrapper.findAll('[data-testid="operator-group-panel"]')[1];
-    expect(multiplyPanel.text()).toContain("Level 3");
+    expect(multiplyPanel.find('[data-testid="session-badge"]').text()).toContain("85.0%");
     const additionPanel = wrapper.findAll('[data-testid="operator-group-panel"]')[0];
-    expect(additionPanel.find('[data-testid="level-badge"]').exists()).toBe(false);
+    expect(additionPanel.find('[data-testid="session-badge"]').exists()).toBe(false);
   });
 
   it("shows the best cheat-free streak only once one has been set", async () => {

@@ -1,13 +1,17 @@
 # Cheaty Flashcards
 
-A single-page math flashcard game for kids. Pick a section (Addition,
-Subtraction, Multiplication, Division), pick a level, and answer 10
-multiple-choice arithmetic questions. There's a "Cheat" button that reveals
-the correct answer a limited number of times per level, at the cost of
-points — hence the name.
+A single-page math flashcard game for kids. Pick a group (Addition &
+Subtraction, or Multiplication & Division) and practice a dynamically
+generated session of multiple-choice arithmetic questions, drawn from a
+per-player fact-family curriculum that unlocks gradually as mastery builds.
+There's a hint-token budget that lets you "ask Ziggy" to eliminate wrong
+answers or reveal the correct one — at the cost of mastery credit for that
+fact — hence the name.
 
-Live logic lives entirely client-side; there's no backend or persistence
-layer. Progress and scores exist only for the duration of a level.
+Live logic lives entirely client-side; there's no backend. Mastery,
+curriculum progress, and session bests persist locally via Pinia +
+`localStorage` (see `plan-notes/phase-1.md`), with optional JSON export/import
+for backup.
 
 ## Tech stack
 
@@ -15,8 +19,9 @@ layer. Progress and scores exist only for the duration of a level.
 - **Vite+** (`vite-plus`) as the toolchain — wraps Vite 8, runs tests via its
   bundled Vitest (`vite-plus/test`), and provides `vp check` for
   Oxc-based lint/format/type-check
-- **vue-router 5** with real (`history`) routing, for `/section` and `/section/level` routes —
-  requires SPA fallback support from the host, see Deployment below
+- **vue-router 5** with real (`history`) routing — `/` and `/play/:group`
+  (`add`|`multiply`) are the only two player-facing routes — requires SPA
+  fallback support from the host, see Deployment below
 - **Tailwind CSS 4** + **daisyUI 5**, configured entirely via CSS (`src/style.css`)
   using `@import`/`@plugin`/`@theme` — there is no `tailwind.config.js` or
   `postcss.config.js` in Tailwind v4
@@ -25,7 +30,7 @@ layer. Progress and scores exist only for the duration of a level.
   milestones, mastery-ups, new-best badges) are synthesized directly via the
   Web Audio API instead (`playChime()` in `sounds.ts`) rather than adding more
   binary assets
-- **canvas-confetti** for celebration bursts (level clears, cheat-free streak
+- **canvas-confetti** for celebration bursts (session clears, cheat-free streak
   milestones, new personal bests)
 - **@unhead/vue** for `<title>` management
 - **vue-tsc** for type-checking `.vue` files during `pnpm build`
@@ -35,26 +40,34 @@ layer. Progress and scores exist only for the duration of a level.
 ```
 src/
   main.ts           entry point: creates the Vue app, head, router
-  routes.ts         route table + a beam analytics pageview hook
+  routes.ts         route table (/ and /play/:group)
   App.vue           root layout: header + <RouterView>
-  types.ts          shared types (Section, Level, Question, ...)
-  sections.ts        the 4 sections' data + generateLevel() question generator
-  sounds.ts          Howler sound effect wrappers
-  utils.ts           shuffle/format helpers + LevelMetrics (per-level scoring/timing)
+  types.ts          shared types (Question, AnswerType, SessionSummary, ...)
+  mastery.ts         fact-family model + Leitner mastery engine + weighted sampling
+  curriculum.ts       progressive curriculum: starter set, unlock logic
+  session.ts          buildQuestion() + dynamic session composition/end-conditions
+  dashboard.ts        pure helpers for the mastery dashboard (Ziggy's Den copy, colors)
+  milestones.ts        session-outcome badge threshold helper
+  sounds.ts          Howler sound effect wrappers + synthesized Web Audio chimes
+  utils.ts           shuffle/format helpers + SessionMetrics (per-session scoring/timing)
+  stores/            Pinia stores: settings, mastery, curriculum, progress, streak
   pages/
-    HomePage.vue      lists all sections
-    SectionPage.vue    lists the 8 levels for one section
-    LevelPage.vue      the actual flashcard game + end-of-level summary
+    HomePage.vue      per-group mastery dashboard + Play entry points
+    PlayPage.vue       intro (curriculum preview) / active (quiz) / outro (recap) session flow
   components/
-    SiteHeader.vue, SiteFooter.vue, NavBreadcrumbs.vue, LevelLinks.vue
+    SiteHeader.vue, SiteFooter.vue, NavBreadcrumbs.vue, FactFamilyShape.vue,
+    OperatorGroupPanel.vue, MasteryGrid.vue
   assets/sounds/     mp3 files played via howler
 ```
 
-Routing is `/:section` and `/:section/:level`, with `section`/`level` passed
-in as string props. Both `SectionPage.vue` and `LevelPage.vue` look up the
-section by id via `sections.find(...)` (so it's typed `Section | undefined`)
-and redirect to `/` if the id doesn't match a known section — this guards
-against arbitrary/stale URLs.
+Routing is just `/` and `/play/:group` (`group` is `"add"` or `"multiply"`),
+with `group` passed in as a string prop. `PlayPage.vue` validates it against
+the two known groups and redirects to `/` otherwise — this guards against
+arbitrary/stale URLs. A session is generated fresh from the player's current
+curriculum/mastery state each time; there's no per-session URL (the one
+legitimate case for a shareable link — practicing specific numbers — is still
+supported via `?focus=7,8` on `/play/:group`). See `plan-notes/phase-8.md`
+for the full design.
 
 ## Development
 
@@ -112,7 +125,7 @@ is auto-injected into `index.html`'s `<head>`.
 - **Offline**: `workbox.navigateFallback: "/index.html"` is set explicitly —
   without it, `generateSW`'s default precache doesn't serve `index.html` for
   arbitrary client-side routes, so an offline deep-link/reload to e.g.
-  `/add/3` would fail even though the shell is cached. `globPatterns` is
+  `/play/add` would fail even though the shell is cached. `globPatterns` is
   widened beyond the workbox default to include `woff2` (Fredoka variable
   font files) and `mp3` (Howler sound effects) so the app is fully playable,
   sound and all, with no network.
@@ -124,7 +137,7 @@ is auto-injected into `index.html`'s `<head>`.
 - Verified manually: manifest resolves and validates, service worker
   activates, all icon URLs 200, and — via a scratch Playwright script
   toggling `context.setOffline(true)` — both a same-page offline reload and
-  a fresh offline navigation to a previously-unvisited route (`/add/2`)
+  a fresh offline navigation to a previously-unvisited route (`/play/multiply`)
   render full app content instead of a network error.
 
 ## Visual identity
@@ -164,6 +177,8 @@ is auto-injected into `index.html`'s `<head>`.
   `tailwind.config.js`.
 - `autoprefixer`/`postcss.config.js` were removed — Tailwind v4's Vite
   plugin (`@tailwindcss/vite`) handles CSS transforms itself.
-- `generateLevel()` in `sections.ts` procedurally generates questions and
+- `buildQuestion()` in `session.ts` procedurally generates questions and
   wrong-answer distractors per operator; there's no static question bank.
-- Levels 1–8 per section; level difficulty scales via `factorA = level + 1`.
+- No fixed level count or difficulty scale — a session's fact-family mix is
+  adaptive (weighted toward low-mastery families, `mastery.ts`) and scoped to
+  whatever's currently unlocked in the player's curriculum (`curriculum.ts`).

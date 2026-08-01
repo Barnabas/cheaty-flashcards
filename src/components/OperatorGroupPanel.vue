@@ -2,10 +2,11 @@
 import { computed } from "vue";
 import IconAward from "~icons/feather/award";
 import MasteryGrid from "./MasteryGrid.vue";
+import FoxMascot from "./mascot/FoxMascot.vue";
 import { useMasteryStore } from "../stores/mastery";
 import { useProgressStore } from "../stores/progress";
 import { OperatorGroup, familyPool } from "../mastery";
-import { masterySummary } from "../dashboard";
+import { masterySummary, denFlavor, denPose } from "../dashboard";
 import { highestClearedLevel } from "../milestones";
 import { Section } from "../types";
 
@@ -22,6 +23,8 @@ const title = computed(() => props.sections.map((s) => s.name).join(" & "));
 const summary = computed(() =>
   masterySummary(familyPool(props.group), (key) => mastery.getFamily(key)),
 );
+const flavor = computed(() => denFlavor(summary.value));
+const pose = computed(() => denPose(summary.value));
 
 function levelBadge(sectionId: string) {
   return highestClearedLevel(sectionId, MAX_LEVEL, (id, level) =>
@@ -34,14 +37,22 @@ function levelBadge(sectionId: string) {
     class="card bg-base-100 shadow-md p-4 flex flex-col gap-4"
     data-testid="operator-group-panel"
   >
-    <h2 class="font-display text-xl font-bold">{{ title }}</h2>
+    <div class="flex items-center gap-2">
+      <FoxMascot :pose="pose" class="w-10 h-10 shrink-0" />
+      <h2 class="font-display text-xl font-bold">{{ title }} — Ziggy's Den</h2>
+    </div>
     <div class="flex flex-wrap gap-6 items-start">
       <MasteryGrid :group="group" />
-      <div class="text-sm" data-testid="mastery-summary">
-        {{ summary.mastered }} / {{ summary.total }} facts mastered
-        <span v-if="summary.started > summary.mastered">
-          ({{ summary.started - summary.mastered }} in progress)
-        </span>
+      <div class="flex flex-col gap-1">
+        <div class="text-sm" data-testid="mastery-summary">
+          {{ summary.mastered }} / {{ summary.total }} facts mastered
+          <span v-if="summary.started > summary.mastered">
+            ({{ summary.started - summary.mastered }} in progress)
+          </span>
+        </div>
+        <div class="text-sm italic text-base-content/70" data-testid="den-flavor">
+          {{ flavor }}
+        </div>
       </div>
     </div>
     <div class="flex flex-wrap gap-4">

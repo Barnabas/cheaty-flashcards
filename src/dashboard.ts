@@ -23,6 +23,30 @@ export type MasterySummary = {
   started: number;
 };
 
+// Ziggy the Fox is the through-line for the "cheat has stakes" mechanic —
+// this reframes the mastery grid (Ziggy's Den) as a running commentary from
+// him, rather than a bare progress readout. Pure/testable like the rest of
+// this file.
+export function denFlavor(summary: MasterySummary): string {
+  if (summary.total === 0) return "";
+  if (summary.mastered >= summary.total) {
+    return "Ziggy's fresh out of tricks here — you know these cold!";
+  }
+  if (summary.mastered / summary.total >= 0.5) {
+    return "Ziggy's starting to sweat. Keep going!";
+  }
+  if (summary.started > 0) {
+    return "Ziggy's still got a few tricks up his sleeve.";
+  }
+  return "Ziggy hasn't even broken a sweat yet — go rattle his cage!";
+}
+
+export function denPose(summary: MasterySummary): "idle" | "sly" | "cheer" {
+  if (summary.total > 0 && summary.mastered >= summary.total) return "cheer";
+  if (summary.started === 0) return "sly";
+  return "idle";
+}
+
 // Counts across a fact-family pool: how many have been seen at all, and how
 // many have reached full mastery. Drives the "12 / 36 facts mastered" text
 // next to a group's heatmap.

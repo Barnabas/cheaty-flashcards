@@ -2,14 +2,51 @@
 @import "@fontsource-variable/fredoka";
 
 @plugin "daisyui" {
-  themes:
-    light --default,
-    dark --prefersdark,
-    cupcake;
+  themes: ziggy --default;
+}
+
+/* "ziggy" — kid-bright fox-den palette for the Ziggy the Fox mascot.
+   One committed theme, not a light/dark pair: nothing in the UI ever
+   offered a switcher, so the old light/dark/cupcake trio was dead weight
+   (see PLAN.md Phase 7) — a single warm palette also keeps mascot art,
+   confetti colors, and the PWA manifest theme_color all trivially in sync. */
+@plugin "daisyui/theme" {
+  name: "ziggy";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #fff8f0;
+  --color-base-200: #fdecd8;
+  --color-base-300: #f7dab8;
+  --color-base-content: #3a2a1e;
+  --color-primary: #f2711c;
+  --color-primary-content: #3a1400;
+  --color-secondary: #7c3aed;
+  --color-secondary-content: #fbefff;
+  --color-accent: #ffd23f;
+  --color-accent-content: #4a3300;
+  --color-neutral: #3a2a1e;
+  --color-neutral-content: #f5efe6;
+  --color-info: #38bdf8;
+  --color-info-content: #072b3d;
+  --color-success: #4ade80;
+  --color-success-content: #06301a;
+  --color-warning: #fbbf24;
+  --color-warning-content: #3d2900;
+  --color-error: #f94144;
+  --color-error-content: #3a0505;
+  --radius-selector: 1rem;
+  --radius-field: 1rem;
+  --radius-box: 1.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 2px;
+  --depth: 1;
+  --noise: 0;
 }
 
 @theme {
   --font-display: Fredoka Variable, sans-serif;
+  --color-fox: #f2711c;
 }
 
 @utility container {

@@ -21,7 +21,12 @@ layer. Progress and scores exist only for the duration of a level.
   using `@import`/`@plugin`/`@theme` — there is no `tailwind.config.js` or
   `postcss.config.js` in Tailwind v4
 - **unplugin-icons** for `~icons/feather/*` imports, backed by `@iconify-json/feather`
-- **howler** for sound effects
+- **howler** for mp3 sound effects; a handful of newer event chimes (streak
+  milestones, mastery-ups, new-best badges) are synthesized directly via the
+  Web Audio API instead (`playChime()` in `sounds.ts`) rather than adding more
+  binary assets
+- **canvas-confetti** for celebration bursts (level clears, cheat-free streak
+  milestones, new personal bests)
 - **@unhead/vue** for `<title>` management
 - **vue-tsc** for type-checking `.vue` files during `pnpm build`
 
@@ -121,6 +126,28 @@ is auto-injected into `index.html`'s `<head>`.
   toggling `context.setOffline(true)` — both a same-page offline reload and
   a fresh offline navigation to a previously-unvisited route (`/add/2`)
   render full app content instead of a network error.
+
+## Visual identity
+
+- **Theme**: a single custom daisyUI theme, `ziggy`, defined in `src/style.css`
+  via daisyUI 5's CSS-first `@plugin "daisyui/theme"` syntax. There is no
+  light/dark toggle — the app never had a UI control for one, so the old
+  `light`/`dark`/`cupcake` trio (Phase 0–6) was dead config, not a real
+  feature. One warm, kid-bright palette also keeps mascot art, confetti
+  colors, and the PWA manifest's `theme_color`/`background_color` trivially
+  in sync (all reference the same hex values by hand — see `vite.config.ts`
+  and `index.html`).
+- **Mascot**: "Ziggy the Fox", a sly trickster who personifies the cheat
+  mechanic — hint tokens are framed as asking Ziggy for a favor, and a
+  cheat-free streak is "outfoxing" him. Rendered as hand-coded flat SVG
+  (`src/components/mascot/FoxMascot.vue`, `pose: "idle" | "sly" | "cheer"`),
+  not an image asset, so it's crisp at any size and free in the bundle. Colors
+  are literal hex matching the `ziggy` theme rather than `var(--color-*)` —
+  SVG presentation attributes don't reliably resolve daisyUI's oklch custom
+  properties across browsers.
+- Confetti (`src/confetti.ts`) and the synthesized chimes above are the other
+  half of the "make it feel like a game, not a worksheet" push — see
+  `plan-notes/phase-7.md` for the full design reasoning.
 
 ## Notes for future maintainers / AI agents
 

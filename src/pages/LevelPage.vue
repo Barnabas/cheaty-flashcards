@@ -1,22 +1,24 @@
 <script lang="ts" setup>
 import IconHint from "~icons/feather/zap";
 import IconEliminate from "~icons/feather/eye-off";
-import IconFinish from "~icons/feather/award";
 import IconRestart from "~icons/feather/repeat";
 import IconNext from "~icons/feather/arrow-right";
 import { ref, computed, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
+import FoxMascot from "../components/mascot/FoxMascot.vue";
 import { generateLevel, sections } from "../sections";
 import { Level, Question, AnswerType, LevelSummary } from "../types";
-import { playSound } from "../sounds";
+import { playSound, playChime } from "../sounds";
+import { celebrate, celebrateBig } from "../confetti";
 import { LevelMetrics, formatPercent, formatTime, shuffle } from "../utils";
 import { useProgressStore } from "../stores/progress";
 import { useMasteryStore } from "../stores/mastery";
 import { useStreakStore } from "../stores/streak";
-import { FAST_RESPONSE_MS, MasteryOutcome } from "../mastery";
+import { FAST_RESPONSE_MS, MAX_STAGE, MasteryOutcome } from "../mastery";
 import { isStreakMilestone } from "../streak";
+import { LEVEL_CLEAR_THRESHOLD } from "../milestones";
 
 // Tiered cheat costs, spent from a per-level hint-token budget. Eliminating
 // two wrong answers still leaves recall work to do, so it's cheap; revealing
@@ -154,7 +156,14 @@ function recordFamilyOutcome() {
     const elapsed = Date.now() - metrics.questionStart;
     outcome = elapsed < FAST_RESPONSE_MS ? "correct-fast" : "correct-slow";
   }
-  mastery.recordAttempt(currentQuestion.value.familyKey, outcome);
+  const familyKey = currentQuestion.value.familyKey;
+  const stageBefore = mastery.getFamily(familyKey).stage;
+  mastery.recordAttempt(familyKey, outcome);
+  // Celebrate the first time a family reaches full mastery — Ziggy's out of
+  // tricks for that one now (see dashboard.ts's denFlavor()).
+  if (stageBefore < MAX_STAGE && mastery.getFamily(familyKey).stage >= MAX_STAGE) {
+    playChime("mastery_up");
+  }
 }
 
 function recordStreak() {
@@ -162,6 +171,8 @@ function recordStreak() {
   const newStreak = streak.recordClean();
   if (isStreakMilestone(newStreak)) {
     streakMilestone.value = newStreak;
+    playChime("streak_milestone");
+    celebrate(0.15);
     clearTimeout(streakMilestoneTimeout);
     streakMilestoneTimeout = setTimeout(() => {
       streakMilestone.value = null;
@@ -234,6 +245,12 @@ function finishLevel() {
   isNewBest.value = section
     ? progress.recordLevelResult(section.id, currentLevel.value.level, summary.value)
     : false;
+  if (isNewBest.value) {
+    playChime("badge");
+    celebrateBig();
+  } else if (summary.value.percentCorrect >= LEVEL_CLEAR_THRESHOLD) {
+    celebrate();
+  }
 }
 
 function nextLevel() {
@@ -285,12 +302,12 @@ function revealAnswer() {
   <section v-if="section">
     <div class="mt-16 mx-4 max-w-2xl md:mx-auto" v-if="summary">
       <div class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2">
-        <div class="flex bg-secondary -mt-4 -mx-4 p-2">
-          <IconFinish class="h-8 w-8" />
+        <div class="flex items-center bg-secondary -mt-4 -mx-4 p-2">
+          <FoxMascot pose="cheer" class="h-10 w-10 shrink-0" label="Ziggy cheering" />
           <div class="font-display font-medium text-center text-2xl flex-1">
             {{ section.name }} Level {{ currentLevel.level }} Complete
           </div>
-          <IconFinish class="h-8 w-8" />
+          <FoxMascot pose="cheer" class="h-10 w-10 shrink-0" label="Ziggy cheering" />
         </div>
         <table class="table table-lg table-fixed">
           <tbody>
@@ -341,7 +358,8 @@ function revealAnswer() {
         data-testid="streak-milestone"
       >
         <div class="alert alert-success shadow-lg">
-          <span>🔥 {{ streakMilestone }} cheat-free streak!</span>
+          <FoxMascot pose="cheer" class="h-8 w-8 shrink-0" label="Ziggy outfoxed" />
+          <span>You outfoxed Ziggy! {{ streakMilestone }} cheat-free streak!</span>
         </div>
       </div>
       <div class="flex gap-8 text-8xl font-bold font-display justify-center">
@@ -361,7 +379,7 @@ function revealAnswer() {
         </button>
       </div>
 
-      <div class="container flex flex-wrap justify-between gap-2">
+      <div class="container flex flex-wrap justify-between items-center gap-2">
         <div class="flex gap-2">
           <button
             class="btn btn-secondary tracking-wide"
@@ -370,7 +388,7 @@ function revealAnswer() {
             data-testid="eliminate-button"
           >
             <IconEliminate />
-            Eliminate 2 ({{ ELIMINATE_COST }})
+            Ask Ziggy to hide 2 ({{ ELIMINATE_COST }})
           </button>
           <button
             class="btn btn-accent tracking-wide"
@@ -379,17 +397,20 @@ function revealAnswer() {
             data-testid="reveal-button"
           >
             <IconHint />
-            Reveal ({{ REVEAL_COST }})
+            Beg Ziggy to reveal it ({{ REVEAL_COST }})
           </button>
         </div>
-        <div class="flex gap-1 items-center" :class="hintClass()" data-testid="hint-tokens">
-          <IconHint class="inline-block" v-for="_hint in hintTokens" />
+        <div class="flex items-center gap-2">
+          <FoxMascot pose="sly" class="w-6 h-6 shrink-0" label="Ziggy" />
+          <div class="flex gap-1 items-center" :class="hintClass()" data-testid="hint-tokens">
+            <IconHint class="inline-block" v-for="_hint in hintTokens" />
+          </div>
         </div>
       </div>
       <div class="container flex items-center gap-4">
         <div class="w-1/3">
           <span v-if="streak.current > 0" data-testid="streak-count"
-            >🔥 {{ streak.current }} streak</span
+            >🦊 outfoxing Ziggy: {{ streak.current }} in a row</span
           >
         </div>
         <progress

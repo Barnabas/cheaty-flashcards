@@ -2,6 +2,8 @@ allowBuilds:
   esbuild: true
   workerd: true
   sharp: false
+  "@google/genai": true
+  protobufjs: true
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.5
   vite-plus: 0.2.5

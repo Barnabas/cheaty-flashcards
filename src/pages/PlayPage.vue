@@ -23,7 +23,7 @@ import {
   resolveTargetFamilies,
 } from "../session";
 import { Question, AnswerType, SessionSummary } from "../types";
-import { playSound, playChime } from "../sounds";
+import { playSound } from "../sounds";
 import { celebrate, celebrateBig } from "../confetti";
 import { SessionMetrics, formatPercent, formatTime, shuffle } from "../utils";
 import { useProgressStore } from "../stores/progress";
@@ -151,7 +151,7 @@ function enterIntro() {
   if (!g) return;
   pageTitle.value = `${GROUP_LABELS[g]} - Practice`;
   curriculum.ensureSeeded(g);
-  highlightedKey.value = curriculum.tryAutoUnlock(g, (key) => mastery.getFamily(key)) ?? null;
+  highlightedKey.value = curriculum.tryAutoUnlock(g, (key) => mastery.getFamily(key))?.key ?? null;
   focusInput.value = typeof route.query.focus === "string" ? route.query.focus : "";
   phase.value = "intro";
 }
@@ -211,7 +211,7 @@ function recordFamilyOutcome() {
   const stageBeforeThis = mastery.getFamily(familyKey).stage;
   mastery.recordAttempt(familyKey, outcome);
   if (stageBeforeThis < MAX_STAGE && mastery.getFamily(familyKey).stage >= MAX_STAGE) {
-    playChime("mastery_up");
+    playSound("mastery_up");
   }
 }
 
@@ -220,7 +220,7 @@ function recordStreak() {
   const newStreak = streak.recordClean();
   if (isStreakMilestone(newStreak)) {
     streakMilestone.value = newStreak;
-    playChime("streak_milestone");
+    playSound("streak_milestone");
     celebrate(0.15);
     clearTimeout(streakMilestoneTimeout);
     streakMilestoneTimeout = setTimeout(() => {
@@ -329,7 +329,7 @@ function finishSession() {
   summary.value = metrics.endSession();
   isNewBest.value = progress.recordSessionResult(group.value, summary.value);
   if (isNewBest.value) {
-    playChime("badge");
+    playSound("badge");
     celebrateBig();
   } else if (summary.value.percentCorrect >= SESSION_CLEAR_THRESHOLD) {
     celebrate();

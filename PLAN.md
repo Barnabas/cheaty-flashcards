@@ -6,7 +6,7 @@ Living plan document. Update checkboxes and add notes as phases land; don't dele
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-08-01 (Phase 8)
+Last updated: 2026-08-07 (Phase 9 prep — asset pipeline)
 
 ## Why this redesign
 
@@ -37,7 +37,7 @@ Current implementation state is the code itself (README.md has the architecture 
 
 ## Library changes
 
-**Added so far:** `vite-plus` (replaces `vite`, adds `vp check`/`vp test`/`vp run`/`vp pack`; re-exports Vitest 4.x under `vite-plus/test`), `pinia` + `pinia-plugin-persistedstate`, `@vue/test-utils`, `playwright` (devDependency, kept permanently as of Phase 4 for manual real-browser verification — was previously added/removed per phase, which was just churn since every phase needs it), `wrangler` (Phase 5, deploy tooling — see `wrangler.jsonc`), `vite-plugin-pwa` (Phase 6, manifest + offline precaching — see `vite.config.ts`), `canvas-confetti` + `@types/canvas-confetti` (Phase 7, celebration bursts — see `src/confetti.ts`).
+**Added so far:** `vite-plus` (replaces `vite`, adds `vp check`/`vp test`/`vp run`/`vp pack`; re-exports Vitest 4.x under `vite-plus/test`), `pinia` + `pinia-plugin-persistedstate`, `@vue/test-utils`, `playwright` (devDependency, kept permanently as of Phase 4 for manual real-browser verification — was previously added/removed per phase, which was just churn since every phase needs it), `wrangler` (Phase 5, deploy tooling — see `wrangler.jsonc`), `vite-plugin-pwa` (Phase 6, manifest + offline precaching — see `vite.config.ts`), `canvas-confetti` + `@types/canvas-confetti` (Phase 7, celebration bursts — see `src/confetti.ts`). Phase 9 prep: `@google/genai` + `pngjs` + `jpeg-js` (devDependencies, image-generation asset pipeline — see `scripts/generate-ziggy-assets.mjs`; `pngjs`/`jpeg-js` are pure-JS codecs chosen specifically to avoid `sharp`, which `pnpm-workspace.yaml` disallows building).
 
 **Removed:** nothing yet — `howler`, `@unhead/vue`, `@fontsource-variable/fredoka`, daisyUI/Tailwind all stay.
 
@@ -59,6 +59,8 @@ Things that already cost a session real time once. Check this before touching ad
 - `revealAnswer()`'s 1s cleanup `setTimeout` is untracked/uncancellable (unlike `streakMilestoneTimeout`), so a rapid "Replay" during a reveal can clear the wrong question's highlight early.
 
 Both are narrow races, carried over unchanged into `PlayPage.vue` (renamed from `LevelPage.vue` in Phase 8) — still worth fixing opportunistically if a future phase is already in that file.
+
+A third, unrelated bug was found and fixed during Phase 9 prep (2026-08-07), while verifying `pnpm build` still passed: `enterIntro()` assigned the whole `FactFamily` object returned by `curriculum.tryAutoUnlock()` straight into `highlightedKey` (typed `string | null`) instead of pulling out `.key`, unlike the equivalent assignment in `unlockBonus()`'s handler. This both broke the production type-check (`vue-tsc`, not caught by `vp check`'s lint-level type-awareness) and meant the "highlight the newly auto-unlocked family" UI could never actually have matched — silently dead since Phase 8. One-line fix.
 
 ## Phases
 
@@ -112,6 +114,8 @@ Implementation landed largely as planned; one gap found along the way (not in th
 ### Phase 9 — Home page redesign & Ziggy as a speaking companion
 
 Motivation: home page feedback from this planning session — a full 64-cell mastery grid reads as a wall of debt rather than progress, Ziggy appears four separate times on one page without a clear job each time, and 🔥/🦊/📦-style emoji sit awkwardly next to the app's actual Feather-icon language.
+
+**Asset pipeline prep — done (2026-08-07), UI work below still not started.** Before any of the checklist items, this session built the raster art needed to make them possible: 6 Ziggy image assets (AI-generated, `src/assets/ziggy/`) via a scripted Gemini pipeline, regenerated app icons from two of them, and an 8-sound mp3 refresh via ElevenLabs (including retiring Phase 7's synthesized-chime code entirely in favor of real audio). [Full detail](./plan-notes/phase-9.md). Open item carried forward: whether the free-tier ElevenLabs non-commercial license matters for this public-but-non-monetized site — not yet vetted.
 
 - [ ] **Home page becomes progress-plus-CTA**: replace the full heatmap with `FactFamilyShape` tiles for only the currently-active (introduced) families — a growing collection, not a wall of what's not mastered yet — plus one prominent "Play" button per operator group as the obvious next action.
 - [ ] **`ZiggySpeaks` component**: mascot + speech bubble + typewriter-style visual reveal, replacing static third-person "about Ziggy" copy with first-person lines from Ziggy. Full text must be present in the DOM immediately (reveal is a visual overlay/mask, not incremental `textContent`) so screen readers get it right away and tests don't need to wait on animation timers; respects `prefers-reduced-motion` (skip straight to fully revealed).

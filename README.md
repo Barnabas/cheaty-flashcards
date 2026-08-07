@@ -113,15 +113,19 @@ configured in `vite.config.ts`). `vp build` emits `dist/sw.js` +
 `dist/manifest.webmanifest` alongside the usual assets, and `registerSW.js`
 is auto-injected into `index.html`'s `<head>`.
 
-- **Icons**: source SVGs live in `src/assets/icons/` (`icon.svg` for
-  favicons/app icons, `icon-maskable.svg` — full-bleed background, content
-  kept inside the safe zone — for Android adaptive/maskable icons). The
-  actual PNGs served from `public/` (`pwa-192x192.png`, `pwa-512x512.png`,
-  `maskable-icon-512x512.png`, `apple-touch-icon.png`, `favicon.ico` +
-  `favicon-{16,32}x32.png`) are pre-rendered from those SVGs — macOS's
-  built-in `sips -s format png file.svg --out out.png -Z <size>` rasterizes
-  SVG directly, no ImageMagick/`sharp`/Node canvas dependency needed if you
-  need to regenerate them.
+- **Icons**: source is now raster, not vector — `src/assets/ziggy/brand-mark.png`
+  (transparent, used for the favicons + "any purpose" PWA icons) and
+  `src/assets/ziggy/icon-maskable.png` (opaque teal background, Ziggy kept
+  inside the safe zone — for Android adaptive/maskable icons and
+  `apple-touch-icon`, since iOS doesn't handle transparency well). Both are
+  AI-generated via `scripts/generate-ziggy-assets.mjs` (see that file and
+  `reference/ziggy-character-sheet.png`). The actual PNGs served from
+  `public/` (`pwa-192x192.png`, `pwa-512x512.png`, `maskable-icon-512x512.png`,
+  `apple-touch-icon.png`, `favicon.ico` + `favicon-{16,32}x32.png`) are
+  resized from those two source images with macOS's built-in
+  `sips -Z <size> file.png --out out.png` — no ImageMagick/`sharp`/Node
+  canvas dependency needed if you need to regenerate them (`sips -s format
+ico favicon-32x32.png --out favicon.ico` handles the `.ico` conversion).
 - **Offline**: `workbox.navigateFallback: "/index.html"` is set explicitly —
   without it, `generateSW`'s default precache doesn't serve `index.html` for
   arbitrary client-side routes, so an offline deep-link/reload to e.g.

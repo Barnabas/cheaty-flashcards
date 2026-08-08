@@ -6,12 +6,12 @@
 // The model can't output a real alpha channel (its image response format is jpeg-only),
 // and asking it for a "transparent background" just makes it draw a checkerboard pattern
 // as pixel content. So for cutout assets we instead ask for a flat chroma-key background
-// and key it out to real alpha ourselves afterward, using pure-JS codecs (pngjs/jpeg-js —
-// no `sharp`/native build, which this repo deliberately avoids; see pnpm-workspace.yaml).
+// and key it out to real alpha ourselves afterward. `sharp` handles decode/encode
+// (auto-detects JPEG vs. PNG, gives us a raw RGBA buffer); the chroma-key math itself is
+// bespoke and stays hand-rolled below.
 
 import { GoogleGenAI } from "@google/genai";
-import jpeg from "jpeg-js";
-import { PNG } from "pngjs";
+import sharp from "sharp";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -154,23 +154,20 @@ function blurAlpha(data, width, height) {
   }
 }
 
-function decodeToRgba(buffer, mimeType) {
-  if (mimeType === "image/png") {
-    const png = PNG.sync.read(buffer);
-    return { data: png.data, width: png.width, height: png.height };
-  }
-  // Default to JPEG — that's what this model's image response format actually returns.
-  const { data, width, height } = jpeg.decode(buffer, { useTArray: true, formatAsRGBA: true });
-  return { data, width, height };
+async function decodeToRgba(buffer) {
+  const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({
+    resolveWithObject: true,
+  });
+  return { data, width: info.width, height: info.height };
 }
 
-function cutoutToPng(buffer, mimeType) {
-  const { data, width, height } = decodeToRgba(buffer, mimeType);
+async function cutoutToPng(buffer) {
+  const { data, width, height } = await decodeToRgba(buffer);
   chromaKeyToAlpha(data, width, height, CHROMA_KEY);
   blurAlpha(data, width, height);
-  const png = new PNG({ width, height });
-  png.data = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-  return PNG.sync.write(png);
+  return sharp(data, { raw: { width, height, channels: 4 } })
+    .png()
+    .toBuffer();
 }
 
 async function main() {
@@ -224,8 +221,8 @@ async function main() {
         const rawBuffer = Buffer.from(generatedImage.data, "base64");
         const outPath = path.join(OUT_DIR, `${asset.file}.png`);
         const pngBuffer = asset.chromaKey
-          ? cutoutToPng(rawBuffer, generatedImage.mime_type)
-          : cutoutToPngPassthrough(rawBuffer, generatedImage.mime_type);
+          ? await cutoutToPng(rawBuffer)
+          : await sharp(rawBuffer).png().toBuffer();
         fs.writeFileSync(outPath, pngBuffer);
         console.log(`  Saved ${outPath}`);
         break;
@@ -243,14 +240,6 @@ async function main() {
     );
     process.exitCode = 1;
   }
-}
-
-/** For non-cutout assets (opaque background by design) — just re-encode as PNG, no keying. */
-function cutoutToPngPassthrough(buffer, mimeType) {
-  const { data, width, height } = decodeToRgba(buffer, mimeType);
-  const png = new PNG({ width, height });
-  png.data = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-  return PNG.sync.write(png);
 }
 
 main().catch((err) => {

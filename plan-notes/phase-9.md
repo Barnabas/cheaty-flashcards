@@ -39,11 +39,23 @@ and asking it in the prompt for a "transparent background" just made it
 transparency. Worked around by asking for a flat, solid magenta (`#FF00FF`)
 background instead and chroma-keying it out programmatically afterward.
 
-`sharp` was the obvious tool for that, but `pnpm-workspace.yaml` sets
-`allowBuilds.sharp: false` (a deliberate Phase 5/6 decision to avoid native
-image-processing builds). Used `pngjs` + `jpeg-js` instead — both pure JS,
-no native compilation — decode → chroma-key → re-encode as PNG with a real
-alpha channel.
+`sharp` was the obvious tool for that, but `pnpm-workspace.yaml` set
+`allowBuilds.sharp: false` (a Phase 5/6 decision to avoid native
+image-processing builds — at the time, sharp had no use case in this repo
+beyond an optional wrangler feature this app doesn't touch). Used `pngjs` +
+`jpeg-js` instead — both pure JS, no native compilation — decode →
+chroma-key → re-encode as PNG with a real alpha channel.
+
+**Update (2026-08-07, later dependency-cleanup pass):** re-examined during a
+broader dependency audit — the "avoid sharp" call had no reason beyond "not
+needed yet," and this script is exactly a case where it _is_ needed.
+`allowBuilds.sharp` flipped to `true`; `generate-ziggy-assets.mjs` now
+decodes/encodes via `sharp` directly (still hand-rolls the actual
+chroma-key/un-premultiply math below, since that part is bespoke) and the
+`pngjs`/`jpeg-js` dependencies were dropped. `fix-ziggy-alpha-fringe.mjs`
+(the one-off repair described below) was deleted — it had already been run
+against the affected assets and the generator itself no longer regresses,
+so there was nothing left for it to do.
 
 Two bugs surfaced across the actual generation runs, both in the
 color-recovery math rather than the alpha computation itself:

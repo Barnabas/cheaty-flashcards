@@ -26,10 +26,8 @@ for backup.
   using `@import`/`@plugin`/`@theme` — there is no `tailwind.config.js` or
   `postcss.config.js` in Tailwind v4
 - **unplugin-icons** for `~icons/feather/*` imports, backed by `@iconify-json/feather`
-- **howler** for mp3 sound effects; a handful of newer event chimes (streak
-  milestones, mastery-ups, new-best badges) are synthesized directly via the
-  Web Audio API instead (`playChime()` in `sounds.ts`) rather than adding more
-  binary assets
+- **howler** for all 8 sound effects (gameplay cues plus streak/mastery/badge
+  chimes), played via a single `playSound()` in `sounds.ts`
 - **canvas-confetti** for celebration bursts (session clears, cheat-free streak
   milestones, new personal bests)
 - **@unhead/vue** for `<title>` management
@@ -48,7 +46,7 @@ src/
   session.ts          buildQuestion() + dynamic session composition/end-conditions
   dashboard.ts        pure helpers for the mastery dashboard (Ziggy's Den copy, colors)
   milestones.ts        session-outcome badge threshold helper
-  sounds.ts          Howler sound effect wrappers + synthesized Web Audio chimes
+  sounds.ts          Howler sound effect wrappers (playSound())
   utils.ts           shuffle/format helpers + SessionMetrics (per-session scoring/timing)
   stores/            Pinia stores: settings, mastery, curriculum, progress, streak
   pages/

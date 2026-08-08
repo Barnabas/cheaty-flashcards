@@ -1,0 +1,8 @@
+# Notes for future maintainers / AI agents
+
+- **TypeScript is pinned to `^6.0.3`, not the `latest`/`7.x` line.** TypeScript 7 is a from-scratch native (Go-based) rewrite with a completely different package layout — it no longer exposes the classic `typescript/lib/tsc` entry point that `vue-tsc` (and most of the current Vue tooling) depends on. Installing `typescript@latest` will break `pnpm build` with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Keep TypeScript on the last classic-architecture 6.x release until `vue-tsc`/`@vue/language-core` ship native-TS-7 support, then re-evaluate.
+- Tailwind v4 + daisyUI config lives in `src/style.css`, not in JS/CS config files. If you're looking for theme/plugin config, look there, not for a `tailwind.config.js`.
+- `autoprefixer`/`postcss.config.js` were removed — Tailwind v4's Vite plugin (`@tailwindcss/vite`) handles CSS transforms itself.
+- `buildQuestion()` in `session.ts` procedurally generates questions and wrong-answer distractors per operator; there's no static question bank.
+- No fixed level count or difficulty scale — a session's fact-family mix is adaptive (weighted toward low-mastery families, `mastery.ts`) and scoped to whatever's currently unlocked in the player's curriculum (`curriculum.ts`).
+- When writing markdown, do not wrap paragraph lines; write long lines as single lines instead. If editing a markdown file that already has wrapped lines, unwrap them.

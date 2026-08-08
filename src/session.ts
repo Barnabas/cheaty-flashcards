@@ -18,8 +18,8 @@ export const GROUP_LABELS: Record<OperatorGroup, string> = {
   multiply: "Multiplication & Division",
 };
 
-// Rough starting numbers (see PLAN.md's Phase 8 open questions) — a session
-// ends early on a clean pass, but never runs longer than this regardless.
+// Rough starting numbers (see docs/open-questions.md's Phase 8 entry) — a
+// session ends early on a clean pass, but never runs longer than this regardless.
 export const SESSION_MAX_QUESTIONS = 20;
 export const SESSION_MAX_MS = 3 * 60 * 1000;
 

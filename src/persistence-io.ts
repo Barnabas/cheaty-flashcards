@@ -9,9 +9,9 @@ import { fnv1aHash } from "./checksum";
 // Bumped from 1 -> 2 for Phase 8's progress/curriculum schema change.
 // Deliberately not migrated: parseProgressExport already hard-rejects on a
 // version mismatch, so an old v1 file just fails import cleanly with a
-// friendly "doesn't look like a progress export" message (see PLAN.md's
-// Phase 8 open questions — dropping old data on this upgrade is fine, the
-// only real player is the niece this was built for).
+// friendly "doesn't look like a progress export" message (see
+// docs/open-questions.md's Phase 8 entry — dropping old data on this
+// upgrade is fine, the only real player is the niece this was built for).
 export const PROGRESS_EXPORT_VERSION = 2;
 
 // The payload whose contents the checksum actually covers — everything in

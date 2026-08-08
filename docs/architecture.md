@@ -23,7 +23,7 @@ src/
   mastery.ts         fact-family model + Leitner mastery engine + weighted sampling
   curriculum.ts       progressive curriculum: starter set, unlock logic
   session.ts          buildQuestion() + dynamic session composition/end-conditions
-  dashboard.ts        pure helpers for the mastery dashboard (Ziggy's Den copy, colors)
+  dashboard.ts        pure helpers for the home page (Ziggy's greeting copy, stage colors)
   milestones.ts        session-outcome badge threshold helper
   sounds.ts          Howler sound effect wrappers (playSound())
   utils.ts           shuffle/format helpers + SessionMetrics (per-session scoring/timing)

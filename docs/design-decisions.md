@@ -1,12 +1,12 @@
 # Design decisions (settled)
 
-Historical record of redesign decisions and why they were made. See [../PLAN.md](../PLAN.md) for current status and phase links.
+Historical record of redesign decisions and why they were made. See [../PLAN.md](../PLAN.md) for current status and phase links. As of 2026-08-08, [game-vision.md](./game-vision.md) supersedes these where they conflict — notably the cheat-economy framing (streak-as-reward and per-session token resets give way to a persistent wallet where cheating is priced, not shamed) and session shape (the all-active-families target gives way to a seated table of 4–6).
 
 - **No visible countdown/timer pressure.** Response time is still measured silently and feeds mastery scoring, but kids never see a ticking clock by default.
 - **Fact-family-level mastery tracking**, not per-equation. Group by triple (e.g. {3,6,9} for +/−, {3,6,18} for ×/÷). Each family has a mastery stage (Leitner-box style, ~0–5). Correct+fast promotes; wrong, slow, or cheated-to answers demote or withhold promotion.
 - **Adaptive question generation**: weighted sampling biased toward low-mastery families, with interleaved review of mastered ones. Replaces level-number-driven difficulty.
 - **Players can target specific numbers** ("work on my 7s and 8s") — this is just a filter/seed on the same weighted pool the adaptive engine uses.
-- **Mixed practice mode** pairs inverse operations (add/subtract, multiply/divide), matching how fact families are taught. Single-operator drilling stays available too.
+- **Mixed practice mode** pairs inverse operations (add/subtract, multiply/divide), matching how fact families are taught. (Superseded by Phase 8: sessions inherently practice both operators of every family — the separate `?mixed=1` flag and single-operator drilling are gone.)
 - **Levels become milestones/badges**, decoupled from raw difficulty, which is now continuous and adaptive per player. (Superseded by Phase 8: level _numbers_ are retired entirely rather than just decoupled from difficulty — the player only picks an operator group, and a session is generated dynamically from their current curriculum/mastery state. Badges move from `sectionId + level`-keyed personal bests to session-outcome-based tracking.)
 - **Cheat mechanic gets real stakes**: tiered hints (cheap = eliminate 2 wrong answers, expensive = reveal answer), cheat-free streaks earn visible rewards, and answers reached via cheat contribute little/no mastery progress for that fact. The old point-accumulation score is retired entirely.
 - **Progress is local-only, no leaderboard.** Mastery data, streaks, badges, personal bests live in `localStorage` via Pinia + persistence plugin. Optional JSON export/import for backup or cross-device transfer — no server involved. If a player name is ever collected for personalized messages, it stays local, never transmitted.

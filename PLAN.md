@@ -4,7 +4,7 @@ Living plan index. Update checkboxes and add a one-to-three sentence summary as 
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-08-08 (Phase 10 — About/Credits page)
+Last updated: 2026-08-08 (Act 2 planned — see [docs/game-vision.md](./docs/game-vision.md))
 
 ## Why this redesign
 
@@ -79,6 +79,70 @@ Asset pipeline prep landed first: 6 Ziggy image assets (AI-generated, `src/asset
 - [x] Credits: Vue, Tailwind, daisyUI, Fredoka (Fontsource), Feather icons, Howler, canvas-confetti, sound asset sources (check licenses), Vite+, niece co-creation note. Shipped list also covers Pinia, Vue Router and Unhead — runtime dependencies doing visible work.
 - [x] Delete or repurpose the dead `SiteFooter.vue` as the real footer, linking to About. (Repurposed; mounted in `App.vue`, so every route gets it.)
 - [x] Drop the niece's initials from the help modal — About would have made a second public copy of them, so both now say "my niece".
+
+## Act 2 — make it a game
+
+A whole-app review (2026-08-08, played in-browser at phone and desktop sizes) concluded Phases 0–10 built everything except the game: Ziggy narrates but never acts, real progress is nearly invisible ("0 of 8 facts down" after a perfect session), the cheat economy fights itself (tokens reset and evaporate while the streak punishes spending them), and the all-active-families session target becomes mathematically uncompletable past 10 active families. The full intended experience now lives in [docs/game-vision.md](./docs/game-vision.md) — **read it before starting any Act 2 phase**; it wins over older docs where they conflict.
+
+Each phase below is scoped to one agent session. Sequencing: Phase 11 can land any time; 12 → 13 → 14 in order (each builds on the last); 15 and 16 need 14; 17 goes last.
+
+### Phase 11 — Playability repairs — not started
+
+Bug fixes only, no design changes — everything currently listed in [docs/known-issues.md](./docs/known-issues.md), which the 2026-08-08 review expanded. Headliners: the cheat buttons overflow the viewport on a 390px phone (horizontal scroll on the core play screen), and `SiteFooter.vue`'s external link is missing `rel="noopener"`, which is an actually-failing test on this branch.
+
+- [ ] Fix every entry in [docs/known-issues.md](./docs/known-issues.md); update that doc as items land
+- [ ] `vp test` fully green again; manual phone-width check of the play screen
+
+### Phase 12 — Sessions that stay short and completable — not started
+
+Replace the all-active-families session target with a seated "table" of 4–6 families chosen by need (lowest stage first, at-risk later once Phase 16 exists, light review of won cards), using the existing weighted sampler. The clean-pass end condition applies to the table only, so sessions stay ~2 minutes forever and the hard cap becomes a rare fallback instead of the guaranteed ending. Also: a question ends after a right answer or a second miss — on the second miss Ziggy reveals the answer free, the family takes the wrong-outcome hit, and play moves on (kills brute-force tapping). Verify unlock cadence still functions when sessions no longer touch every active family each time.
+
+- [ ] Table selection (4–6 families) via `selectFamilies()`; completion condition scoped to the table
+- [ ] Two-miss rule with Ziggy revealing the answer in character
+- [ ] Session-length property test: completable at 36 active families
+- [ ] Retune/verify unlock thresholds against subset sessions
+
+### Phase 13 — One economy: the token wallet — not started
+
+Hint tokens move from a per-session reset to a persistent, capped wallet (new persisted store or a `progress` extension). Earned by skill: cheat-free streak milestones and clean sessions pay out. Spent on eliminate (1), reveal (3), and the bonus fact — which becomes priced instead of free. Cheating becomes a legitimate trade, not a shamed one: copy and help modal updated so spending is in-character commerce with Ziggy, while the streak's job becomes earning, not guilt.
+
+- [ ] Persistent wallet with cap (~10), earn rules, and export/import coverage
+- [ ] Bonus fact costs tokens; all three prices visible before spending
+- [ ] Help modal + Ziggy copy rewritten to the priced-not-shamed framing
+
+### Phase 14 — The card table: Ziggy's hand vs. yours — not started
+
+The visible journey, and the biggest phase. Every family in a group becomes a card in exactly one place: Ziggy's face-down pile (not yet dealt), Ziggy's hand (in play, his), your side (won = unlock stage), or gold (max stage). Winning every card at the table makes Ziggy deal a new one — the existing unlock rule, now visible as the game's one rule. Wrong answers that drop a won card below the winning stage are a dramatized steal-back. Home page and session intro/outro reorganize around the table; `FactFamilyShape` gains won/gold/at-risk states with a legend a kid can read.
+
+- [ ] Card-state model derived from existing mastery/curriculum stores (no new engine)
+- [ ] Home page: Ziggy's pile + hand vs. your side + gold, per group
+- [ ] Steal-back and card-won moments surfaced in session flow
+- [ ] Intro/outro show today's table and its card movements
+
+### Phase 15 — Ziggy plays to win: drama and the kid-first payoff — not started
+
+Ziggy reacts at meaningful beats mid-session (steal, card won, streak milestone — throttled to at most one reaction between questions, never blocking input), always mocking his own loss rather than the kid. The outro flips to celebration-first: cards won/defended/lost this session, big and concrete; the score/time table folds behind a grown-ups disclosure; every kid-facing number becomes a count, not a decimal percent.
+
+- [ ] Mid-session reaction system with throttle rules from the vision doc
+- [ ] Celebration-first outro; telemetry behind a disclosure
+- [ ] Sweep all kid-facing copy for decimals/telemetry
+
+### Phase 16 — Defend your cards: the reason to come back — not started
+
+`lastSeen` (already recorded, currently unused for scheduling) drives an at-risk state: cards not defended in a while get Ziggy's eye and a named callout ("I'm coming for your 7s") on home and in intros, and are seated first at the table. He threatens during absence but only ever steals through wrong answers at the table.
+
+- [ ] At-risk derivation from `lastSeen` + stage; visual tell on cards
+- [ ] Seating priority: at-risk first (hooks into Phase 12's table selection)
+- [ ] Home/intro callouts naming what's at risk
+
+### Phase 17 — Fit for small hands: layout, polish, device pass — not started
+
+Commercial-grade pass on the play screen and shell: balanced desktop composition (currently everything crowds the top-left 40%), kid-sized tap targets, the focus-numbers input moved out of the kid flow into a grown-ups corner, and the still-open Phase 6 item — install and play offline on a real phone.
+
+- [ ] Play-screen layout rework at 390px and desktop widths
+- [ ] Focus input relocated; kid flow is Play-button-only
+- [ ] Real-device PWA verification (install, offline, sound)
+- [ ] Final a11y/perf sweep
 
 ## Reference
 

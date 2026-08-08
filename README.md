@@ -19,6 +19,7 @@ See [docs/development.md](./docs/development.md) for the full command list, depl
 
 This file and [PLAN.md](./PLAN.md) are kept brief on purpose — load the linked doc only when the task needs it.
 
+- [docs/game-vision.md](./docs/game-vision.md) — what the finished game is; the north star for Act 2 phases, wins over older docs where they conflict
 - [docs/architecture.md](./docs/architecture.md) — tech stack, project structure, routing
 - [docs/development.md](./docs/development.md) — dev/build/test commands, Cloudflare Workers deployment, PWA
 - [docs/visual-identity.md](./docs/visual-identity.md) — theme, Ziggy the Fox mascot, confetti/sound

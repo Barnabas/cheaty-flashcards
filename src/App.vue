@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useHead } from "@unhead/vue";
+import SiteFooter from "./components/SiteFooter.vue";
 import SiteHeader from "./components/SiteHeader.vue";
 import { RouterView } from "vue-router";
 
@@ -13,4 +14,5 @@ useHead({
   <main class="flex-grow">
     <RouterView />
   </main>
+  <SiteFooter />
 </template>

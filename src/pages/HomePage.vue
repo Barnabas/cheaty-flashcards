@@ -32,7 +32,7 @@ const greeting = computed(() => homeGreeting(overall.value));
 const bestStreak = computed(() => streak.best);
 </script>
 <template>
-  <section class="container mt-4 flex flex-col gap-8">
+  <section class="container mt-4 mb-8 flex flex-col gap-8">
     <ZiggySpeaks :pose="greeting.pose" :lines="greeting.lines" />
     <div v-if="bestStreak > 0" class="-mt-4 flex justify-center">
       <span class="badge badge-lg badge-accent gap-2" data-testid="best-streak">

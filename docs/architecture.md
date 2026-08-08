@@ -4,7 +4,7 @@
 
 - **Vue 3** (`<script setup>` SFCs) + **TypeScript**
 - **Vite+** (`vite-plus`) as the toolchain — wraps Vite 8, runs tests via its bundled Vitest (`vite-plus/test`), and provides `vp check` for Oxc-based lint/format/type-check. See [toolchain.md](./toolchain.md).
-- **vue-router 5** with real (`history`) routing — `/` and `/play/:group` (`add`|`multiply`) are the only two player-facing routes — requires SPA fallback support from the host, see [development.md](./development.md#deployment)
+- **vue-router 5** with real (`history`) routing — `/`, `/play/:group` (`add`|`multiply`) and `/about` are the only routes — requires SPA fallback support from the host, see [development.md](./development.md#deployment)
 - **Tailwind CSS 4** + **daisyUI 5**, configured entirely via CSS (`src/style.css`) using `@import`/`@plugin`/`@theme` — there is no `tailwind.config.js` or `postcss.config.js` in Tailwind v4
 - **unplugin-icons** for `~icons/feather/*` imports, backed by `@iconify-json/feather`
 - **howler** for all 8 sound effects (gameplay cues plus streak/mastery/badge chimes), played via a single `playSound()` in `sounds.ts`
@@ -17,8 +17,8 @@
 ```
 src/
   main.ts           entry point: creates the Vue app, head, router
-  routes.ts         route table (/ and /play/:group)
-  App.vue           root layout: header + <RouterView>
+  routes.ts         route table (/, /play/:group, /about)
+  App.vue           root layout: header + <RouterView> + footer
   types.ts          shared types (Question, AnswerType, SessionSummary, ...)
   mastery.ts         fact-family model + Leitner mastery engine + weighted sampling
   curriculum.ts       progressive curriculum: starter set, unlock logic
@@ -31,6 +31,7 @@ src/
   pages/
     HomePage.vue      Ziggy's greeting + per-group progress panels + Play entry points
     PlayPage.vue       intro (curriculum preview) / active (quiz) / outro (recap) session flow
+    AboutPage.vue      what it is, who made it, asset provenance, library credits
   components/
     SiteHeader.vue, SiteFooter.vue, NavBreadcrumbs.vue, FactFamilyShape.vue,
     OperatorGroupPanel.vue
@@ -41,6 +42,6 @@ src/
                      derivatives components actually import
 ```
 
-Routing is just `/` and `/play/:group` (`group` is `"add"` or `"multiply"`), with `group` passed in as a string prop. `PlayPage.vue` validates it against the two known groups and redirects to `/` otherwise — this guards against arbitrary/stale URLs. A session is generated fresh from the player's current curriculum/mastery state each time; there's no per-session URL (the one legitimate case for a shareable link — practicing specific numbers — is still supported via `?focus=7,8` on `/play/:group`). See [plan-notes/phase-8.md](./plan-notes/phase-8.md) for the full design.
+Routing is `/`, `/play/:group` (`group` is `"add"` or `"multiply"`, passed in as a string prop) and `/about`. `PlayPage.vue` validates it against the two known groups and redirects to `/` otherwise — this guards against arbitrary/stale URLs. A session is generated fresh from the player's current curriculum/mastery state each time; there's no per-session URL (the one legitimate case for a shareable link — practicing specific numbers — is still supported via `?focus=7,8` on `/play/:group`). See [plan-notes/phase-8.md](./plan-notes/phase-8.md) for the full design.
 
 See also: [maintainer-notes.md](./maintainer-notes.md) for gotchas specific to this codebase.

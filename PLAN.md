@@ -4,7 +4,7 @@ Living plan index. Update checkboxes and add a one-to-three sentence summary as 
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-08-07 (Phase 9 — home page redesign & Ziggy as a speaking companion)
+Last updated: 2026-08-08 (Phase 10 — About/Credits page)
 
 ## Why this redesign
 
@@ -71,11 +71,14 @@ Asset pipeline prep landed first: 6 Ziggy image assets (AI-generated, `src/asset
 - [x] **Visual consistency pass**: each Ziggy appearance does a distinct job; `FoxMascot.vue`'s flat SVG retired in favour of the painted assets everywhere; emoji in copy (🦊, ❤️, and the eight outro score messages) replaced by Feather icons or dropped.
 - [x] Revisit whether `/settings` is worth splitting into its own route yet. (No — see [docs/open-questions.md](./docs/open-questions.md).)
 
-### Phase 10 — About/Credits page
+### Phase 10 — About/Credits page — done (2026-08-08)
 
-- [ ] Real `/about` route (not a modal) linking to barnabas.me
-- [ ] Credits: Vue, Tailwind, daisyUI, Fredoka (Fontsource), Feather icons, Howler, canvas-confetti, sound asset sources (check licenses), Vite+, niece co-creation note
-- [ ] Delete or repurpose the dead `SiteFooter.vue` as the real footer, linking to About
+`/about` is a real route: what the app is, who made it, where Ziggy's art and voice came from, and a credited list of every runtime dependency with its license. `SiteFooter.vue` — a placeholder since the initial commit — became the real footer that gets you there from any screen. Phase 9's open ElevenLabs-license item is answered by disclosure: the page names its AI asset sources, and nothing about the app is commercial. [Full detail](./docs/plan-notes/phase-10.md).
+
+- [x] Real `/about` route (not a modal) linking to barnabas.me
+- [x] Credits: Vue, Tailwind, daisyUI, Fredoka (Fontsource), Feather icons, Howler, canvas-confetti, sound asset sources (check licenses), Vite+, niece co-creation note. Shipped list also covers Pinia, Vue Router and Unhead — runtime dependencies doing visible work.
+- [x] Delete or repurpose the dead `SiteFooter.vue` as the real footer, linking to About. (Repurposed; mounted in `App.vue`, so every route gets it.)
+- [x] Drop the niece's initials from the help modal — About would have made a second public copy of them, so both now say "my niece".
 
 ## Reference
 

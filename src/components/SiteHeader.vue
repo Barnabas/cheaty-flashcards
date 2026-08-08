@@ -55,7 +55,7 @@ const helpLines = [
       <p class="py-2 flex items-center justify-center gap-1 text-sm">
         Made with
         <IconHeart class="w-4 h-4 text-error" aria-label="love" />
-        for L.J. from Uncle Barn
+        for my niece
       </p>
     </form>
     <form method="dialog" class="modal-backdrop">

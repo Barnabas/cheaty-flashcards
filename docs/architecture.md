@@ -29,12 +29,16 @@ src/
   utils.ts           shuffle/format helpers + SessionMetrics (per-session scoring/timing)
   stores/            Pinia stores: settings, mastery, curriculum, progress, streak
   pages/
-    HomePage.vue      per-group mastery dashboard + Play entry points
+    HomePage.vue      Ziggy's greeting + per-group progress panels + Play entry points
     PlayPage.vue       intro (curriculum preview) / active (quiz) / outro (recap) session flow
   components/
     SiteHeader.vue, SiteFooter.vue, NavBreadcrumbs.vue, FactFamilyShape.vue,
-    OperatorGroupPanel.vue, MasteryGrid.vue
+    OperatorGroupPanel.vue
+    mascot/ZiggyImage.vue    the mascot art, pose -> asset
+    mascot/ZiggySpeaks.vue   portrait + speech bubble + typewriter reveal
   assets/sounds/     mp3 files played via howler
+  assets/ziggy/      mascot source art (1024px PNG); web/ holds the small WebP
+                     derivatives components actually import
 ```
 
 Routing is just `/` and `/play/:group` (`group` is `"add"` or `"multiply"`), with `group` passed in as a string prop. `PlayPage.vue` validates it against the two known groups and redirects to `/` otherwise — this guards against arbitrary/stale URLs. A session is generated fresh from the player's current curriculum/mastery state each time; there's no per-session URL (the one legitimate case for a shareable link — practicing specific numbers — is still supported via `?focus=7,8` on `/play/:group`). See [plan-notes/phase-8.md](./plan-notes/phase-8.md) for the full design.

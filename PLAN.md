@@ -4,7 +4,7 @@ Living plan index. Update checkboxes and add a one-to-three sentence summary as 
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-08-07 (Phase 9 prep — asset pipeline)
+Last updated: 2026-08-07 (Phase 9 — home page redesign & Ziggy as a speaking companion)
 
 ## Why this redesign
 
@@ -60,16 +60,16 @@ New custom `ziggy` daisyUI theme; introduced "Ziggy the Fox" as a narrative masc
 
 Motivation: the original level-numbered-route design existed to make a specific practice session shareable via URL, but once mastery/progress live in `localStorage` per player, a "level" doesn't mean anything stable. Replaced with: per-player active fact-family curriculum with auto-unlock, `/play/:group` routing (`?focus=` carries over), dynamic session generation/end-conditions, new intro/outro screens, session-outcome badges replacing `sectionId + level`-keyed personal bests. One gap found along the way: JSON export/import needed a `curriculum` field too. [Full detail](./docs/plan-notes/phase-8.md).
 
-### Phase 9 — Home page redesign & Ziggy as a speaking companion
+### Phase 9 — Home page redesign & Ziggy as a speaking companion — done (2026-08-07)
 
 Motivation: a full 64-cell mastery grid reads as a wall of debt rather than progress, Ziggy appears four times on one page without a clear job each time, and emoji sit awkwardly next to the app's Feather-icon language.
 
-**Asset pipeline prep — done (2026-08-07), UI work below still not started.** Built 6 Ziggy image assets (AI-generated, `src/assets/ziggy/`), regenerated app icons, and an 8-sound mp3 refresh via ElevenLabs (retiring Phase 7's synthesized chimes). [Full detail](./docs/plan-notes/phase-9.md). Open item: whether the free-tier ElevenLabs non-commercial license matters for this public-but-non-monetized site — not yet vetted.
+Asset pipeline prep landed first: 6 Ziggy image assets (AI-generated, `src/assets/ziggy/`), regenerated app icons, and an 8-sound mp3 refresh via ElevenLabs (retiring Phase 7's synthesized chimes). Then the UI: Ziggy became a first-person speaking companion via `ZiggySpeaks`, the home page dropped its heatmap for active-family tiles plus a Play CTA per group, and the hand-coded SVG mascot was retired so there's one art style and one Ziggy per moment. [Full detail](./docs/plan-notes/phase-9.md). Open item: whether the free-tier ElevenLabs non-commercial license matters for this public-but-non-monetized site — not yet vetted.
 
-- [ ] **Home page becomes progress-plus-CTA**: replace the full heatmap with `FactFamilyShape` tiles for only the currently-active families, plus one "Play" button per operator group.
-- [ ] **`ZiggySpeaks` component**: mascot + speech bubble + typewriter-style reveal, first-person lines. Full text present in the DOM immediately (visual overlay/mask, not incremental `textContent`) for a11y + tests; respects `prefers-reduced-motion`.
-- [ ] **Visual consistency pass**: each Ziggy appearance does a distinct job; emoji in copy replaced by Feather icons or dropped.
-- [ ] Revisit whether `/settings` is worth splitting into its own route yet.
+- [x] **Home page becomes progress-plus-CTA**: replace the full heatmap with `FactFamilyShape` tiles for only the currently-active families, plus one "Play" button per operator group. (`MasteryGrid.vue` deleted.)
+- [x] **`ZiggySpeaks` component**: mascot + speech bubble + typewriter-style reveal, first-person lines. Full text present in the DOM immediately (per-character opacity animation, not incremental `textContent`) for a11y + tests; respects `prefers-reduced-motion`.
+- [x] **Visual consistency pass**: each Ziggy appearance does a distinct job; `FoxMascot.vue`'s flat SVG retired in favour of the painted assets everywhere; emoji in copy (🦊, ❤️, and the eight outro score messages) replaced by Feather icons or dropped.
+- [x] Revisit whether `/settings` is worth splitting into its own route yet. (No — see [docs/open-questions.md](./docs/open-questions.md).)
 
 ### Phase 10 — About/Credits page
 

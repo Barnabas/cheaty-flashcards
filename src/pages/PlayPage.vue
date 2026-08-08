@@ -4,11 +4,13 @@ import IconEliminate from "~icons/feather/eye-off";
 import IconRestart from "~icons/feather/repeat";
 import IconNext from "~icons/feather/arrow-right";
 import IconHome from "~icons/feather/home";
+import IconStreak from "~icons/feather/trending-up";
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import NavBreadcrumbs from "../components/NavBreadcrumbs.vue";
-import FoxMascot from "../components/mascot/FoxMascot.vue";
+import ZiggyImage from "../components/mascot/ZiggyImage.vue";
+import ZiggySpeaks from "../components/mascot/ZiggySpeaks.vue";
 import FactFamilyShape from "../components/FactFamilyShape.vue";
 import {
   GROUP_LABELS,
@@ -22,7 +24,7 @@ import {
   permutationKey,
   resolveTargetFamilies,
 } from "../session";
-import { Question, AnswerType, SessionSummary } from "../types";
+import { Question, AnswerType, SessionSummary, ZiggyPose } from "../types";
 import { playSound } from "../sounds";
 import { celebrate, celebrateBig } from "../confetti";
 import { SessionMetrics, formatPercent, formatTime, shuffle } from "../utils";
@@ -145,6 +147,28 @@ const canEliminate = computed(
 const canReveal = computed(() => hintTokens.value >= REVEAL_COST);
 
 const personalBest = computed(() => (group.value ? progress.getBest(group.value) : undefined));
+
+// Ziggy tops and tails a session: on the intro he says what's on the table
+// (and is the only thing that explains the highlighted "New!" card), on the
+// outro he reacts to how it went. Nothing else on either screen is him, so
+// each appearance has one job.
+const introLines = computed(() => {
+  if (highlightedKey.value) {
+    return ["Something new for you today — the card that's glowing. The rest you've met before."];
+  }
+  const seenAny = targetFamilies.value.some((f) => mastery.getFamily(f.key).timesSeen > 0);
+  return seenAny
+    ? ["Same facts as last time. Show me you've still got them."]
+    : ["These are the ones we're starting with. Try not to need me."];
+});
+const introPose = computed<ZiggyPose>(() => (highlightedKey.value ? "gleeful" : "wink"));
+const outroPose = computed<ZiggyPose>(() => {
+  if (!summary.value) return "neutral";
+  if (isNewBest.value || summary.value.percentCorrect >= SESSION_CLEAR_THRESHOLD) return "gleeful";
+  // Below half right, Ziggy's still ahead — and enjoying it. The message
+  // itself stays encouraging (see SessionMetrics.endSession).
+  return summary.value.percentCorrect >= 0.5 ? "neutral" : "wink";
+});
 
 function enterIntro() {
   const g = group.value;
@@ -397,6 +421,7 @@ function revealAnswer() {
   <section v-if="group">
     <div v-if="phase === 'intro'" class="container mt-8 flex flex-col gap-6">
       <h1 class="font-display text-2xl font-bold">{{ GROUP_LABELS[group] }}</h1>
+      <ZiggySpeaks size="sm" :pose="introPose" :lines="introLines" />
       <div class="flex flex-wrap gap-4" data-testid="intro-families">
         <FactFamilyShape
           v-for="family in targetFamilies"
@@ -440,11 +465,9 @@ function revealAnswer() {
     >
       <div class="shadow-xl rounded-xl p-4 border-secondary overflow-clip border-2">
         <div class="flex items-center bg-secondary -mt-4 -mx-4 p-2">
-          <FoxMascot pose="cheer" class="h-10 w-10 shrink-0" label="Ziggy cheering" />
           <div class="font-display font-medium text-center text-2xl flex-1">
             {{ GROUP_LABELS[group] }} Session Complete
           </div>
-          <FoxMascot pose="cheer" class="h-10 w-10 shrink-0" label="Ziggy cheering" />
         </div>
         <table class="table table-lg table-fixed" v-if="summary">
           <tbody>
@@ -472,7 +495,13 @@ function revealAnswer() {
             </tr>
           </tbody>
         </table>
-        <div class="p-2 text-center">{{ summary?.message }}</div>
+        <ZiggySpeaks
+          v-if="summary"
+          size="sm"
+          class="p-2"
+          :pose="outroPose"
+          :lines="[summary.message]"
+        />
         <div class="flex flex-wrap gap-4 p-2 justify-center" data-testid="family-recap">
           <div
             v-for="family in sessionFamilies"
@@ -509,7 +538,11 @@ function revealAnswer() {
         data-testid="streak-milestone"
       >
         <div class="alert alert-success shadow-lg">
-          <FoxMascot pose="cheer" class="h-8 w-8 shrink-0" label="Ziggy outfoxed" />
+          <ZiggyImage
+            pose="gleeful"
+            class="h-9 w-9 shrink-0 rounded-full bg-base-100"
+            label="Ziggy, outfoxed"
+          />
           <span>You outfoxed Ziggy! {{ streakMilestone }} cheat-free streak!</span>
         </div>
       </div>
@@ -552,7 +585,7 @@ function revealAnswer() {
           </button>
         </div>
         <div class="flex items-center gap-2">
-          <FoxMascot pose="sly" class="w-6 h-6 shrink-0" label="Ziggy" />
+          <ZiggyImage pose="mark" class="w-8 h-8 shrink-0 rounded-full bg-base-200" />
           <div class="flex gap-1 items-center" :class="hintClass()" data-testid="hint-tokens">
             <IconHint class="inline-block" v-for="_hint in hintTokens" />
           </div>
@@ -560,9 +593,14 @@ function revealAnswer() {
       </div>
       <div class="container flex items-center gap-4">
         <div class="w-1/3">
-          <span v-if="streak.current > 0" data-testid="streak-count"
-            >🦊 outfoxing Ziggy: {{ streak.current }} in a row</span
+          <span
+            v-if="streak.current > 0"
+            class="inline-flex items-center gap-1"
+            data-testid="streak-count"
           >
+            <IconStreak class="w-4 h-4 shrink-0" />
+            outfoxing Ziggy: {{ streak.current }} in a row
+          </span>
         </div>
         <progress
           class="w-2/3 progress progress-primary"

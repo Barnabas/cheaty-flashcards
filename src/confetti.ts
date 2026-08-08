@@ -1,8 +1,8 @@
 import confetti from "canvas-confetti";
 
 // Matches the "ziggy" daisyUI theme in style.css (primary/secondary/accent/
-// success) — kept as literal hex here for the same reason as FoxMascot.vue:
-// no dependency on CSS custom-property resolution inside a canvas context.
+// success) — kept as literal hex so there's no dependency on CSS
+// custom-property resolution inside a canvas context.
 const THEME_COLORS = ["#f2711c", "#7c3aed", "#ffd23f", "#4ade80"];
 
 function prefersReducedMotion(): boolean {

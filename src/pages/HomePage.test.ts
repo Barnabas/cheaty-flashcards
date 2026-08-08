@@ -42,6 +42,48 @@ describe("HomePage dashboard", () => {
     expect(panels[1].text()).toContain("Multiplication & Division");
   });
 
+  it("shows only the active fact families, not the whole 8x8 pool", async () => {
+    const wrapper = await mountHome();
+    const additionPanel = wrapper.findAll('[data-testid="operator-group-panel"]')[0];
+    expect(additionPanel.findAll('[data-testid="fact-family-shape"]')).toHaveLength(
+      seedStarterFamilies("add").length,
+    );
+  });
+
+  it("gives each group its own Play link", async () => {
+    const wrapper = await mountHome();
+    const links = wrapper.findAll("a").map((link) => link.attributes("href"));
+    expect(links).toContain("/play/add");
+    expect(links).toContain("/play/multiply");
+  });
+
+  it("greets a brand-new player with Ziggy speaking, exactly once", async () => {
+    const wrapper = await mountHome();
+    const bubbles = wrapper.findAll('[data-testid="ziggy-speaks"]');
+    expect(bubbles).toHaveLength(1);
+    expect(bubbles[0].text()).toContain("I'm Ziggy");
+  });
+
+  it("has Ziggy count the player's progress back to them once they've started", async () => {
+    setActivePinia(createPinia());
+    const mastery = useMasteryStore();
+    for (const family of seedStarterFamilies("add")) {
+      for (let i = 0; i < 5; i++) mastery.recordAttempt(family.key, "correct-fast");
+    }
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: "/", component: HomePage }],
+    });
+    await router.push("/");
+    await router.isReady();
+    const wrapper = mount(HomePage, { global: { plugins: [router] } });
+
+    const starters = seedStarterFamilies("add").length;
+    const total = starters + seedStarterFamilies("multiply").length;
+    expect(wrapper.get('[data-testid="ziggy-speaks"]').text()).toContain(`${starters} of ${total}`);
+  });
+
   it("reflects mastery store fixtures in the facts-mastered summary", async () => {
     setActivePinia(createPinia());
     const mastery = useMasteryStore();

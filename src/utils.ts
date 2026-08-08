@@ -52,14 +52,17 @@ export class SessionMetrics {
     const { questionsCorrect, questionsTotal, questionTimeTotal, questionTimeMax } = this;
     const percentCorrect = questionsCorrect / questionsTotal;
 
-    let message: string = "😤 Don't give up!";
-    if (percentCorrect > 0.4) message = "🤓 Go again, I believe in you.";
-    if (percentCorrect > 0.5) message = "🙂 Good job, keep going.";
-    if (percentCorrect > 0.6) message = "👍 Very nice. You got this!";
-    if (percentCorrect > 0.7) message = "😎 Well done, keep it up!";
-    if (percentCorrect > 0.8) message = "😄 Fantastic! Woo hoo!";
-    if (percentCorrect > 0.9) message = "🥳 Amazing! You're killing it.";
-    if (percentCorrect > 0.99) message = "🤩 Wow! Perfect score!";
+    // Ziggy says these out loud on the outro screen (see PlayPage.vue), so
+    // they're first person and emoji-free — the mascot art carries the tone
+    // that the emoji used to.
+    let message: string = "Rough round. Don't you dare quit on me now.";
+    if (percentCorrect > 0.4) message = "Go again. I believe in you, honestly.";
+    if (percentCorrect > 0.5) message = "Good work. Keep going.";
+    if (percentCorrect > 0.6) message = "Very nice. You've got this.";
+    if (percentCorrect > 0.7) message = "Well done! Keep it up.";
+    if (percentCorrect > 0.8) message = "Fantastic — I barely got a word in.";
+    if (percentCorrect > 0.9) message = "Amazing. You're making this look easy.";
+    if (percentCorrect > 0.99) message = "Perfect score. I've got nothing left to teach you.";
 
     return {
       sessionTime: Date.now() - this.sessionStart,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { stageBgClass, masterySummary } from "./dashboard";
+import { stageBgClass, masterySummary, homeGreeting } from "./dashboard";
 import { familyPool } from "./mastery";
 import { FamilyMastery } from "./stores/types";
 
@@ -38,5 +38,47 @@ describe("masterySummary", () => {
   it("treats an unseen family as neither started nor mastered", () => {
     const empty = masterySummary(pool, () => undefined);
     expect(empty).toEqual({ total: 3, mastered: 0, started: 0 });
+  });
+});
+
+describe("homeGreeting", () => {
+  it("introduces himself and the cheat mechanic to a player who hasn't started", () => {
+    const greeting = homeGreeting({ total: 8, mastered: 0, started: 0 });
+    expect(greeting.pose).toBe("wink");
+    expect(greeting.lines.join(" ")).toContain("I'm Ziggy");
+  });
+
+  it("falls back to the introduction rather than dividing by an empty pool", () => {
+    expect(homeGreeting({ total: 0, mastered: 0, started: 0 }).lines.join(" ")).toContain(
+      "I'm Ziggy",
+    );
+  });
+
+  it("counts progress back to a player mid-way through", () => {
+    const greeting = homeGreeting({ total: 8, mastered: 2, started: 5 });
+    expect(greeting.pose).toBe("neutral");
+    expect(greeting.lines[0]).toContain("2 of 8");
+  });
+
+  it("gets excited once half the active facts are mastered", () => {
+    expect(homeGreeting({ total: 8, mastered: 4, started: 8 }).pose).toBe("gleeful");
+  });
+
+  it("concedes the whole set when everything active is mastered", () => {
+    const greeting = homeGreeting({ total: 8, mastered: 8, started: 8 });
+    expect(greeting.pose).toBe("gleeful");
+    expect(greeting.lines[0]).toContain("All 8");
+  });
+
+  it("always speaks in first person, never about himself in the third", () => {
+    const summaries = [
+      { total: 8, mastered: 0, started: 0 },
+      { total: 8, mastered: 2, started: 5 },
+      { total: 8, mastered: 4, started: 8 },
+      { total: 8, mastered: 8, started: 8 },
+    ];
+    for (const summary of summaries) {
+      expect(homeGreeting(summary).lines.join(" ")).not.toContain("Ziggy's");
+    }
   });
 });

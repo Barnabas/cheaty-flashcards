@@ -2,6 +2,7 @@
 // Store-independent, same pattern as mastery.ts/streak.ts.
 import { FactFamily, MAX_STAGE } from "./mastery";
 import { FamilyMastery } from "./stores/types";
+import { ZiggyPose } from "./types";
 
 // Stage 0 (never promoted) through MAX_STAGE (fully mastered), low to high.
 const STAGE_BG_CLASSES = [
@@ -23,28 +24,52 @@ export type MasterySummary = {
   started: number;
 };
 
-// Ziggy the Fox is the through-line for the "cheat has stakes" mechanic —
-// this reframes the mastery grid (Ziggy's Den) as a running commentary from
-// him, rather than a bare progress readout. Pure/testable like the rest of
-// this file.
-export function denFlavor(summary: MasterySummary): string {
-  if (summary.total === 0) return "";
+export type ZiggyGreeting = {
+  pose: ZiggyPose;
+  lines: string[];
+};
+
+// Ziggy's home-page greeting. Phase 7 scattered third-person commentary about
+// Ziggy across every panel ("Ziggy's starting to sweat"); Phase 9 collapses
+// that into a single first-person speech bubble that reacts to how far the
+// player has actually got — same mood thresholds as the old per-group
+// denFlavor(), one voice instead of three copies of it. Pure/testable like the
+// rest of this file.
+export function homeGreeting(summary: MasterySummary): ZiggyGreeting {
+  if (summary.total === 0 || summary.started === 0) {
+    return {
+      pose: "wink",
+      lines: [
+        "I'm Ziggy. I know every one of these facts by heart — you don't. Yet.",
+        "Need a way out of a tough one? Just ask. It'll cost you.",
+      ],
+    };
+  }
   if (summary.mastered >= summary.total) {
-    return "Ziggy's fresh out of tricks here — you know these cold!";
+    return {
+      pose: "gleeful",
+      lines: [
+        `All ${summary.total} of them. You know every fact I've shown you.`,
+        "Fine. I'll go dig up some harder ones.",
+      ],
+    };
   }
   if (summary.mastered / summary.total >= 0.5) {
-    return "Ziggy's starting to sweat. Keep going!";
+    return {
+      pose: "gleeful",
+      lines: [
+        `${summary.mastered} of ${summary.total} facts, locked in. You're making this look easy.`,
+        "Don't get comfortable. Which pile are we doing?",
+      ],
+    };
   }
-  if (summary.started > 0) {
-    return "Ziggy's still got a few tricks up his sleeve.";
-  }
-  return "Ziggy hasn't even broken a sweat yet — go rattle his cage!";
-}
-
-export function denPose(summary: MasterySummary): "idle" | "sly" | "cheer" {
-  if (summary.total > 0 && summary.mastered >= summary.total) return "cheer";
-  if (summary.started === 0) return "sly";
-  return "idle";
+  return {
+    pose: "neutral",
+    lines: [
+      `${summary.mastered} of ${summary.total} facts down. The rest still belong to me.`,
+      "Pick a pile and let's go again.",
+    ],
+  };
 }
 
 // Counts across a fact-family pool: how many have been seen at all, and how

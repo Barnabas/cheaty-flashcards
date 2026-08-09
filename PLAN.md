@@ -4,7 +4,7 @@ Living plan index. Update checkboxes and add a one-to-three sentence summary as 
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-08-08 (Act 2 underway, through Phase 12 — see [docs/game-vision.md](./docs/game-vision.md))
+Last updated: 2026-08-08 (Act 2 underway, through Phase 13 — see [docs/game-vision.md](./docs/game-vision.md))
 
 ## Why this redesign
 
@@ -21,6 +21,7 @@ Things that already cost a session real time once. Check this before touching ad
 - **`onBeforeRouteLeave` (in `useLeaveConfirm`) only registers under a `RouterView`** — `PlayPage`'s existing tests mount the component directly, where the guard silently no-ops (vue-router's `inject(matchedRouteKey)` falls back to a stub). Anything testing navigation guards has to mount a `RouterView` app instead. (Phase 11 — [docs/plan-notes/phase-11.md](./docs/plan-notes/phase-11.md).)
 - **Writing a `refAutoReset` ref restarts its timer**, including a write of the same value — `usePlaySession`'s `dismissStreakMilestone()` guards on the current value for exactly this reason, or every hint purchase would leave a stray pending timer. (Phase 11.)
 - **A session's table must be a `ref`, never a `computed`** — seating reads the mastery store and an rng, so a computed would re-roll the table every time an answer moved a stage, mid-session. `PlayPage.seatTable()` is called at three deliberate moments instead. (Phase 12 — [docs/plan-notes/phase-12.md](./docs/plan-notes/phase-12.md).)
+- **Never call `vi.useRealTimers()` while a component rendered under fake timers is still mounted and needs clicking** — Vue ignores an event whose `timeStamp` predates the listener's `attached` time, and switching back to the real clock rewinds time under everything already rendered. The click dispatches, native listeners fire, and Vue's handler silently never runs — no error, and the test quietly asserts nothing. Stay on fake timers for the rest of the test instead. (Phase 13 — [docs/plan-notes/phase-13.md](./docs/plan-notes/phase-13.md).)
 - **Pinia options-store actions can't reference `this` in a default parameter** (`scope = this.activeFamilies(group)` fails `vue-tsc` with TS2683, and `vp check --fix` catches it too) — default in the body instead. (Phase 12.)
 - **TypeScript is pinned to `^6.0.3`**, not `latest`/`7.x` — see [docs/maintainer-notes.md](./docs/maintainer-notes.md) for why (`vue-tsc` compatibility).
 
@@ -107,13 +108,13 @@ Sessions now seat a table of at most 6 families and end on a clean pass of that 
 - [x] Session-length property test: completable at 36 active families
 - [x] Retune/verify unlock thresholds against subset sessions (unlock is now scoped to the table just played; `SESSION_MAX_QUESTIONS` 20 → 24 on simulated evidence)
 
-### Phase 13 — One economy: the token wallet — not started
+### Phase 13 — One economy: the token wallet — done (2026-08-08)
 
-Hint tokens move from a per-session reset to a persistent, capped wallet (new persisted store or a `progress` extension). Earned by skill: cheat-free streak milestones and clean sessions pay out. Spent on eliminate (1), reveal (3), and the bonus fact — which becomes priced instead of free. Cheating becomes a legitimate trade, not a shamed one: copy and help modal updated so spending is in-character commerce with Ziggy, while the streak's job becomes earning, not guilt.
+Hint tokens are now a persistent, capped wallet (`src/wallet.ts` for the numbers, `src/stores/wallet.ts` for the balance) instead of a per-session allowance, so saving them means something and spending them costs something. The streak stopped being a guilt meter and became the earning engine: milestones pay 1–3 tokens, a session where nothing was bought pays 3, and because buying resets the streak, a player who just spent lands back on the cheap early milestones rather than at a dead end. The bonus fact is priced (5) like everything else Ziggy sells. Copy across the help modal, play screen and outro reframes spending as commerce — the card still stays his and the fact still earns no mastery, but nothing scolds. [Full detail](./docs/plan-notes/phase-13.md).
 
-- [ ] Persistent wallet with cap (~10), earn rules, and export/import coverage
-- [ ] Bonus fact costs tokens; all three prices visible before spending
-- [ ] Help modal + Ziggy copy rewritten to the priced-not-shamed framing
+- [x] Persistent wallet with cap (10), earn rules, and export/import coverage (export version 2 → 3)
+- [x] Bonus fact costs tokens; all three prices visible on the intro before spending
+- [x] Help modal + Ziggy copy rewritten to the priced-not-shamed framing
 
 ### Phase 14 — The card table: Ziggy's hand vs. yours — not started
 

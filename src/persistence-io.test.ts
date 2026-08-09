@@ -9,6 +9,7 @@ function sampleStores() {
     mastery: { families: { "add:3,6,9": { stage: 4 } as any } },
     streak: { current: 3, best: 12 },
     curriculum: { active: { add: ["add:2,2,4", "add:2,3,5"], multiply: [] } },
+    wallet: { tokens: 7 },
   };
 }
 
@@ -42,6 +43,7 @@ describe("buildProgressExport / parseProgressExport round trip", () => {
       mastery: reactive({ families: sampleStores().mastery.families }),
       streak: reactive({ current: 1, best: 5 }),
       curriculum: reactive({ active: sampleStores().curriculum.active }),
+      wallet: reactive({ tokens: 7 }),
     };
     expect(() => buildProgressExport(stores)).not.toThrow();
     expect(buildProgressExport(stores).progress.bests).toEqual(sampleStores().progress.bests);
@@ -67,6 +69,12 @@ describe("parseProgressExport validation", () => {
     const exported = buildProgressExport(sampleStores());
     const { curriculum: _curriculum, ...withoutCurriculum } = exported;
     expect(() => parseProgressExport(JSON.stringify(withoutCurriculum))).toThrow();
+  });
+
+  it("rejects an old v2 export missing the wallet field", () => {
+    const exported = buildProgressExport(sampleStores());
+    const { wallet: _wallet, ...withoutWallet } = exported;
+    expect(() => parseProgressExport(JSON.stringify(withoutWallet))).toThrow();
   });
 
   it("accepts an untampered export", () => {
@@ -100,6 +108,7 @@ describe("applyProgressExport", () => {
       mastery: { families: {} },
       streak: { current: 0, best: 0 },
       curriculum: { active: { add: [], multiply: [] } },
+      wallet: { tokens: 0 },
     };
 
     applyProgressExport(exported, target);
@@ -109,5 +118,6 @@ describe("applyProgressExport", () => {
     expect(target.mastery.families).toEqual(source.mastery.families);
     expect(target.streak).toEqual({ current: 3, best: 12 });
     expect(target.curriculum.active).toEqual(source.curriculum.active);
+    expect(target.wallet.tokens).toBe(7);
   });
 });

@@ -7,6 +7,7 @@ import { useProgressStore } from "../stores/progress";
 import { useMasteryStore } from "../stores/mastery";
 import { useStreakStore } from "../stores/streak";
 import { useCurriculumStore } from "../stores/curriculum";
+import { useWalletStore } from "../stores/wallet";
 import { buildProgressExport, parseProgressExport, applyProgressExport } from "../persistence-io";
 
 const settings = useSettingsStore();
@@ -14,12 +15,13 @@ const progress = useProgressStore();
 const mastery = useMasteryStore();
 const streak = useStreakStore();
 const curriculum = useCurriculumStore();
+const wallet = useWalletStore();
 const fileInput = ref<HTMLInputElement>();
 const importMessage = ref("");
 const importFailed = ref(false);
 
 function exportProgress() {
-  const data = buildProgressExport({ settings, progress, mastery, streak, curriculum });
+  const data = buildProgressExport({ settings, progress, mastery, streak, curriculum, wallet });
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -34,7 +36,7 @@ async function importProgress(event: Event) {
   if (!file) return;
   try {
     const data = parseProgressExport(await file.text());
-    applyProgressExport(data, { settings, progress, mastery, streak, curriculum });
+    applyProgressExport(data, { settings, progress, mastery, streak, curriculum, wallet });
     importFailed.value = false;
     importMessage.value = "Progress imported!";
   } catch (err) {

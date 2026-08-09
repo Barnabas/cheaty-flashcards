@@ -9,8 +9,17 @@ import { useSettingsStore } from "../stores/settings";
 import { useStreakStore } from "../stores/streak";
 import { useMasteryStore } from "../stores/mastery";
 import { useCurriculumStore } from "../stores/curriculum";
+import { useWalletStore } from "../stores/wallet";
 import { familyPool } from "../mastery";
 import { TABLE_MAX_SEATS } from "../session";
+import {
+  CLEAN_SESSION_REWARD,
+  ELIMINATE_COST,
+  NEW_CARD_COST,
+  REVEAL_COST,
+  STARTING_TOKENS,
+  WALLET_CAP,
+} from "../wallet";
 
 // Deterministic, fixed-correct-answer questions so tests don't have to fight
 // shuffle()/Math.random() — mirrors the family list they're given (real
@@ -78,6 +87,12 @@ function answerButtons(wrapper: PlayWrapper) {
   return wrapper.findAll('[data-testid="answer-button"]');
 }
 
+// The wallet readout wherever it's on screen — the play screen's counter, the
+// intro's "you have", the outro's pocket. One number, one testid.
+function walletText(wrapper: PlayWrapper) {
+  return wrapper.get('[data-testid="hint-tokens"]').text();
+}
+
 describe("PlayPage intro", () => {
   it("shows one fact-family shape per active family and a start button", async () => {
     const { wrapper } = await mountPlay({ familyCount: 4 });
@@ -85,11 +100,38 @@ describe("PlayPage intro", () => {
     expect(wrapper.find('[data-testid="start-session-button"]').exists()).toBe(true);
   });
 
-  it("offers a bonus-fact opt-in that adds one more family", async () => {
+  it("sells a new card for tokens, adding one more family to the table", async () => {
     const { wrapper } = await mountPlay({ familyCount: 4 });
+    const wallet = useWalletStore();
     expect(wrapper.find('[data-testid="bonus-fact-button"]').exists()).toBe(true);
+
     await wrapper.get('[data-testid="bonus-fact-button"]').trigger("click");
+
     expect(wrapper.findAll('[data-testid="fact-family-shape"]')).toHaveLength(5);
+    expect(wallet.tokens).toBe(STARTING_TOKENS - NEW_CARD_COST);
+  });
+
+  it("won't deal a card the player can't pay for", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 4 });
+    const wallet = useWalletStore();
+    wallet.tokens = NEW_CARD_COST - 1;
+    await nextTick();
+
+    const button = wrapper.get('[data-testid="bonus-fact-button"]');
+    expect(button.attributes("disabled")).toBeDefined();
+    await button.trigger("click");
+
+    expect(wrapper.findAll('[data-testid="fact-family-shape"]')).toHaveLength(4);
+    expect(wallet.tokens).toBe(NEW_CARD_COST - 1);
+  });
+
+  it("shows every price before anything is bought", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 4 });
+    const prices = wrapper.get('[data-testid="ziggy-prices"]').text();
+    expect(prices).toContain(`Hide 2 wrong answers ${ELIMINATE_COST}`);
+    expect(prices).toContain(`Show you the answer ${REVEAL_COST}`);
+    expect(prices).toContain(`Deal you a new card ${NEW_CARD_COST}`);
+    expect(walletText(wrapper)).toBe(String(STARTING_TOKENS));
   });
 
   it("restricts the family set via ?focus=", async () => {
@@ -250,10 +292,11 @@ describe("PlayPage cheat mechanic", () => {
     vi.useRealTimers();
   });
 
-  it("starts each session with a 5-token hint budget", async () => {
+  it("spends from the wallet the player brought, not a per-session allowance", async () => {
     const { wrapper } = await mountPlay();
+    useWalletStore().tokens = 8;
     await startSession(wrapper);
-    expect(wrapper.get('[data-testid="hint-tokens"]').findAll("svg")).toHaveLength(5);
+    expect(walletText(wrapper)).toBe("8");
   });
 
   it("Eliminate 2 hides two untried wrong answers and spends 1 token", async () => {
@@ -264,7 +307,7 @@ describe("PlayPage cheat mechanic", () => {
     const hidden = answerButtons(wrapper).filter((b) => b.classes().includes("opacity-10"));
     expect(hidden).toHaveLength(2);
     expect(hidden.every((b) => b.text() !== "2")).toBe(true);
-    expect(wrapper.get('[data-testid="hint-tokens"]').findAll("svg")).toHaveLength(4);
+    expect(walletText(wrapper)).toBe(String(STARTING_TOKENS - ELIMINATE_COST));
   });
 
   it("disables Eliminate 2 once no untried wrong answers remain", async () => {
@@ -285,7 +328,7 @@ describe("PlayPage cheat mechanic", () => {
     const revealed = answerButtons(wrapper).filter((b) => b.classes().includes("btn-info"));
     expect(revealed).toHaveLength(1);
     expect(revealed[0].text()).toBe("2");
-    expect(wrapper.get('[data-testid="hint-tokens"]').findAll("svg")).toHaveLength(2);
+    expect(walletText(wrapper)).toBe(String(STARTING_TOKENS - REVEAL_COST));
 
     vi.advanceTimersByTime(1000);
     await nextTick();
@@ -320,13 +363,14 @@ describe("PlayPage cheat-free streak", () => {
     vi.useRealTimers();
   });
 
-  it("builds a streak on clean correct answers and celebrates at the first milestone", async () => {
+  it("builds a streak on clean correct answers and pays out at the first milestone", async () => {
     // 6 families so the milestone (5) is reached before the session's own
     // "every family clean" completion would end it.
     const { wrapper } = await mountPlay({ familyCount: 6 });
     await startSession(wrapper);
     vi.useFakeTimers();
     const streak = useStreakStore();
+    const wallet = useWalletStore();
 
     for (let i = 0; i < 5; i++) {
       const correctButton = answerButtons(wrapper).find((b) => b.text() === "2")!;
@@ -336,8 +380,11 @@ describe("PlayPage cheat-free streak", () => {
     }
 
     expect(streak.current).toBe(5);
-    expect(wrapper.find('[data-testid="streak-milestone"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="streak-milestone"]').text()).toContain("5 cheat-free streak");
+    // The streak is the earning engine now: the milestone toast is a receipt.
+    expect(wallet.tokens).toBe(STARTING_TOKENS + 1);
+    expect(wrapper.get('[data-testid="streak-milestone"]').text()).toContain(
+      "5 in a row! Ziggy pays you 1",
+    );
   });
 
   it("resets the streak as soon as a hint is used", async () => {
@@ -393,10 +440,15 @@ describe("PlayPage cheat-free streak", () => {
     }
     expect(wrapper.find('[data-testid="session-summary"]').exists()).toBe(true);
 
-    vi.useRealTimers();
+    // Deliberately still on fake timers: Vue skips a handler whose event
+    // timestamp predates the listener's attachment, and switching back to
+    // real timers rewinds the clock under everything rendered while faked —
+    // so a Replay clicked after vi.useRealTimers() silently does nothing and
+    // this test would pass without ever replaying.
     await wrapper.get('[data-testid="replay-button"]').trigger("click");
     await nextTick();
 
+    expect(wrapper.find('[data-testid="answer-button"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="streak-milestone"]').exists()).toBe(false);
   });
 });
@@ -599,6 +651,21 @@ describe("PlayPage session outro", () => {
     await flushPromises();
   }
 
+  // A bought hint leaves its permutation on "retry", so a session that used
+  // one needs more clean answers than the family count alone predicts.
+  async function answerCleanUntilSummary(wrapper: PlayWrapper, maxAnswers = 8) {
+    vi.useFakeTimers();
+    for (let i = 0; i < maxAnswers; i++) {
+      if (wrapper.find('[data-testid="session-summary"]').exists()) break;
+      await answerButtons(wrapper)
+        .find((b) => b.text() === "2")!
+        .trigger("click");
+      vi.advanceTimersByTime(500);
+      await nextTick();
+    }
+    await flushPromises();
+  }
+
   it("shows a session summary once every family in the session is cleared", async () => {
     const { wrapper } = await mountPlay({ familyCount: 1 });
     await startSession(wrapper);
@@ -608,15 +675,57 @@ describe("PlayPage session outro", () => {
     expect(wrapper.find('[data-testid="family-recap"]').exists()).toBe(true);
   });
 
-  it("Replay starts a fresh session with a full hint-token budget", async () => {
+  it("Replay carries the wallet over instead of refilling it", async () => {
     const { wrapper } = await mountPlay({ familyCount: 1 });
     await startSession(wrapper);
-    await completeSingleFamilySession(wrapper);
+    await wrapper.get('[data-testid="eliminate-button"]').trigger("click");
+    await answerCleanUntilSummary(wrapper);
+
+    // Stays on fake timers through the click — see the replay test in
+    // "PlayPage cheat-free streak" for why switching back kills the handler.
     await wrapper.get('[data-testid="replay-button"]').trigger("click");
     await flushPromises();
 
     expect(wrapper.find('[data-testid="answer-button"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="hint-tokens"]').findAll("svg")).toHaveLength(5);
+    // Spent one, earned nothing (help was bought), and the new session opens
+    // on what's left rather than a fresh five.
+    expect(walletText(wrapper)).toBe(String(STARTING_TOKENS - ELIMINATE_COST));
+  });
+
+  it("pays out for a session where Ziggy was never asked for anything", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 1 });
+    const wallet = useWalletStore();
+    await startSession(wrapper);
+    await completeSingleFamilySession(wrapper);
+
+    expect(wallet.tokens).toBe(STARTING_TOKENS + CLEAN_SESSION_REWARD);
+    expect(wrapper.get('[data-testid="session-earnings"]').text()).toContain(
+      `Earned ${CLEAN_SESSION_REWARD}`,
+    );
+  });
+
+  it("pays nothing for a session that bought help, and says what would have paid", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 1 });
+    const wallet = useWalletStore();
+    await startSession(wrapper);
+    await wrapper.get('[data-testid="eliminate-button"]').trigger("click");
+    await answerCleanUntilSummary(wrapper);
+
+    expect(wallet.tokens).toBe(STARTING_TOKENS - ELIMINATE_COST);
+    expect(wrapper.get('[data-testid="session-earnings"]').text()).toContain(
+      `Ziggy pays ${CLEAN_SESSION_REWARD}`,
+    );
+  });
+
+  it("clips a payout at the wallet cap rather than promising tokens it didn't give", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 1 });
+    const wallet = useWalletStore();
+    wallet.tokens = WALLET_CAP;
+    await startSession(wrapper);
+    await completeSingleFamilySession(wrapper);
+
+    expect(wallet.tokens).toBe(WALLET_CAP);
+    expect(wrapper.get('[data-testid="session-earnings"]').text()).toContain("Pockets full");
   });
 
   it("Advance returns to the intro screen", async () => {

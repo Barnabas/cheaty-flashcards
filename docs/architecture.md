@@ -26,12 +26,13 @@ src/
   session.ts          buildQuestion() + session composition: table seating, end-conditions
   dashboard.ts        pure helpers for the home page (Ziggy's greeting copy, stage colors)
   milestones.ts        session-outcome badge threshold helper
+  wallet.ts           the one economy: token prices, payouts, wallet cap
   sounds.ts          Howler sound effect wrappers (playSound())
   utils.ts           shuffle/format helpers + SessionMetrics (per-session scoring/timing)
-  stores/            Pinia stores: settings, mastery, curriculum, progress, streak
+  stores/            Pinia stores: settings, mastery, curriculum, progress, streak, wallet
   composables/
     usePlaySession.ts   the session runtime: question queue, answer handling, end condition
-    useHintTokens.ts    the cheat economy: token budget, eliminate/reveal, costs
+    useHintTokens.ts    buying Ziggy's help: eliminate/reveal, paid from the wallet
     useLeaveConfirm.ts  route guard + confirm dialog for abandoning work in progress
   pages/
     HomePage.vue      Ziggy's greeting + per-group progress panels + Play entry points
@@ -40,7 +41,7 @@ src/
     AboutPage.vue      what it is, who made it, asset provenance, library credits
   components/
     SiteHeader.vue, SiteFooter.vue, NavBreadcrumbs.vue, FactFamilyShape.vue,
-    OperatorGroupPanel.vue
+    OperatorGroupPanel.vue, TokenCount.vue (one look for every token number)
     mascot/ZiggyImage.vue    the mascot art, pose -> asset
     mascot/ZiggySpeaks.vue   portrait + speech bubble + typewriter reveal
     play/SessionIntro.vue    what's on the table + start/bonus/focus controls
@@ -55,6 +56,8 @@ src/
 ```
 
 Routing is `/`, `/play/:group` (`group` is `"add"` or `"multiply"`, passed in as a string prop) and `/about`. `PlayPage.vue` validates it against the two known groups and redirects to `/` otherwise — this guards against arbitrary/stale URLs. A session is generated fresh from the player's current curriculum/mastery state each time; there's no per-session URL (the one legitimate case for a shareable link — practicing specific numbers — is still supported via `?focus=7,8` on `/play/:group`). See [plan-notes/phase-8.md](./plan-notes/phase-8.md) for the full design.
+
+Hint tokens are the game's only currency and live in a persistent, capped wallet: `wallet.ts` holds the prices and payout rules, `stores/wallet.ts` holds the balance. Everything that spends (eliminate, reveal, dealing a bonus card) and everything that pays (streak milestones, a session with nothing bought) goes through it. See [plan-notes/phase-13.md](./plan-notes/phase-13.md).
 
 A session doesn't practice everything the player has in play: it seats a _table_ of at most six fact families, and its end condition is a clean pass on that table, so session length stops growing with the collection. Winning every card at the table is also what unlocks the next family. See [plan-notes/phase-12.md](./plan-notes/phase-12.md).
 

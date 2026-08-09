@@ -6,6 +6,7 @@ import HomePage from "./HomePage.vue";
 import { useMasteryStore } from "../stores/mastery";
 import { useProgressStore } from "../stores/progress";
 import { useStreakStore } from "../stores/streak";
+import { useWalletStore } from "../stores/wallet";
 import { seedStarterFamilies } from "../curriculum";
 import { SessionSummary } from "../types";
 
@@ -137,6 +138,20 @@ describe("HomePage dashboard", () => {
     await router.isReady();
     const wrapper = mount(HomePage, { global: { plugins: [router] } });
     expect(wrapper.get('[data-testid="best-streak"]').text()).toContain("12");
+  });
+
+  it("shows what's in the token wallet, since it now persists between sessions", async () => {
+    setActivePinia(createPinia());
+    useWalletStore().tokens = 6;
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: "/", component: HomePage }],
+    });
+    await router.push("/");
+    await router.isReady();
+    const wrapper = mount(HomePage, { global: { plugins: [router] } });
+
+    expect(wrapper.get('[data-testid="wallet-badge"]').text()).toContain("6");
   });
 
   it("offers export/import controls for backing up progress", async () => {

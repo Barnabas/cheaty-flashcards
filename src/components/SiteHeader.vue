@@ -7,18 +7,27 @@ import { ref } from "vue";
 import ZiggyImage from "./mascot/ZiggyImage.vue";
 import ZiggySpeaks from "./mascot/ZiggySpeaks.vue";
 import { useSettingsStore } from "../stores/settings";
+import {
+  CLEAN_SESSION_REWARD,
+  ELIMINATE_COST,
+  NEW_CARD_COST,
+  REVEAL_COST,
+  WALLET_CAP,
+} from "../wallet";
 
 const helpModal = ref();
 const settings = useSettingsStore();
 
 // The help modal is Ziggy explaining his own racket, in his own words — the
-// one place the rules get spelled out, so it's worth the extra lines.
+// one place the rules get spelled out, so it's worth the extra lines. Since
+// Phase 13 that racket is a shop, not a scolding: every favour has a price on
+// it, and he pays you when you don't need him.
 const helpLines = [
-  "I'm Ziggy. Answer right and you move on — or ask me for a favour.",
-  "Miss twice on the same question and I show you the answer myself, and the card stays mine.",
-  "Hide 2 wrong answers costs 1 hint token. Beg me to reveal it costs 3. You get 5 a session.",
-  "Careful though: I don't teach you anything. Facts you cheat on don't count toward mastering them, and it snaps your cheat-free streak.",
-  "Keep that streak alive long enough and you've officially outfoxed me.",
+  "I'm Ziggy. Answer right and you move on. Miss twice and I show you the answer myself — and the card stays mine.",
+  `Stuck? Buy your way out. Hide 2 wrong answers, ${ELIMINATE_COST} token. Show you the answer, ${REVEAL_COST}. Deal you a whole new card, ${NEW_CARD_COST}.`,
+  "Buying is fair play. But an answer I hand you isn't one you knew, so that card stays mine and your run starts over.",
+  `I pay, too: 5 right in a row without me earns a token, and finishing a session without buying anything earns ${CLEAN_SESSION_REWARD}.`,
+  `Keep at most ${WALLET_CAP} tokens in your pocket. Spend them on me — there's nothing else to buy.`,
 ];
 </script>
 <template>

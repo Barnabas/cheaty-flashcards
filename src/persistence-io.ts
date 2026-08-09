@@ -6,13 +6,13 @@ import { OperatorGroup } from "./mastery";
 import { FamilyMastery, SessionBest } from "./stores/types";
 import { fnv1aHash } from "./checksum";
 
-// Bumped from 1 -> 2 for Phase 8's progress/curriculum schema change.
-// Deliberately not migrated: parseProgressExport already hard-rejects on a
-// version mismatch, so an old v1 file just fails import cleanly with a
-// friendly "doesn't look like a progress export" message (see
-// docs/open-questions.md's Phase 8 entry — dropping old data on this
-// upgrade is fine, the only real player is the niece this was built for).
-export const PROGRESS_EXPORT_VERSION = 2;
+// Bumped 1 -> 2 for Phase 8's progress/curriculum schema change, and 2 -> 3
+// for Phase 13's token wallet. Deliberately not migrated: parseProgressExport
+// already hard-rejects on a version mismatch, so an older file just fails
+// import cleanly with a friendly "doesn't look like a progress export" message
+// (see docs/open-questions.md's Phase 8 entry — dropping old data on these
+// upgrades is fine, the only real player is the niece this was built for).
+export const PROGRESS_EXPORT_VERSION = 3;
 
 // The payload whose contents the checksum actually covers — everything in
 // ProgressExport except the checksum field itself.
@@ -24,6 +24,7 @@ export type ProgressPayload = {
   mastery: { families: Record<string, FamilyMastery> };
   streak: { current: number; best: number };
   curriculum: { active: Record<OperatorGroup, string[]> };
+  wallet: { tokens: number };
 };
 
 export type ProgressExport = ProgressPayload & { checksum: string };
@@ -34,6 +35,7 @@ type StoreSnapshot = {
   mastery: { families: Record<string, FamilyMastery> };
   streak: { current: number; best: number };
   curriculum: { active: Record<OperatorGroup, string[]> };
+  wallet: { tokens: number };
 };
 
 function checksumFor(payload: ProgressPayload): string {
@@ -53,6 +55,7 @@ export function buildProgressExport(stores: StoreSnapshot): ProgressExport {
     mastery: { families: structuredClone(toRaw(stores.mastery.families)) },
     streak: { current: stores.streak.current, best: stores.streak.best },
     curriculum: { active: structuredClone(toRaw(stores.curriculum.active)) },
+    wallet: { tokens: stores.wallet.tokens },
   };
   return { ...payload, checksum: checksumFor(payload) };
 }
@@ -77,6 +80,7 @@ export function parseProgressExport(json: string): ProgressExport {
     typeof (data as ProgressExport).mastery !== "object" ||
     typeof (data as ProgressExport).streak !== "object" ||
     typeof (data as ProgressExport).curriculum !== "object" ||
+    typeof (data as ProgressExport).wallet !== "object" ||
     typeof (data as ProgressExport).checksum !== "string"
   ) {
     throw new Error("That file doesn't look like a Cheaty Flashcards progress export.");
@@ -96,4 +100,5 @@ export function applyProgressExport(data: ProgressExport, stores: StoreSnapshot)
   stores.streak.current = data.streak.current;
   stores.streak.best = data.streak.best;
   stores.curriculum.active = { ...data.curriculum.active };
+  stores.wallet.tokens = data.wallet.tokens;
 }

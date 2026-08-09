@@ -3,14 +3,17 @@ import { computed } from "vue";
 import IconAward from "~icons/feather/award";
 import OperatorGroupPanel from "../components/OperatorGroupPanel.vue";
 import ProgressBackup from "../components/ProgressBackup.vue";
+import TokenCount from "../components/TokenCount.vue";
 import ZiggySpeaks from "../components/mascot/ZiggySpeaks.vue";
 import { OperatorGroup } from "../mastery";
 import { homeGreeting, masterySummary } from "../dashboard";
 import { useCurriculumStore } from "../stores/curriculum";
 import { useMasteryStore } from "../stores/mastery";
 import { useStreakStore } from "../stores/streak";
+import { useWalletStore } from "../stores/wallet";
 
 const streak = useStreakStore();
+const wallet = useWalletStore();
 const curriculum = useCurriculumStore();
 const mastery = useMasteryStore();
 
@@ -34,10 +37,21 @@ const bestStreak = computed(() => streak.best);
 <template>
   <section class="container mt-4 mb-8 flex flex-col gap-8">
     <ZiggySpeaks :pose="greeting.pose" :lines="greeting.lines" />
-    <div v-if="bestStreak > 0" class="-mt-4 flex justify-center">
-      <span class="badge badge-lg badge-accent gap-2" data-testid="best-streak">
+    <div class="-mt-4 flex flex-wrap justify-center gap-2">
+      <!-- The wallet is the same number everywhere it appears, and it's
+           persistent now, so home is where a player checks what they're
+           carrying before deciding to spend it. -->
+      <span class="badge badge-lg badge-secondary gap-2" data-testid="wallet-badge">
+        <TokenCount :count="wallet.tokens" :label="`${wallet.tokens} tokens to spend`" />
+        tokens to spend on Ziggy
+      </span>
+      <span
+        v-if="bestStreak > 0"
+        class="badge badge-lg badge-accent gap-2"
+        data-testid="best-streak"
+      >
         <IconAward class="w-4 h-4" />
-        Best run without asking Ziggy: {{ bestStreak }} in a row
+        Best earning run: {{ bestStreak }} in a row
       </span>
     </div>
     <OperatorGroupPanel v-for="group in groups" :key="group" :group="group" />

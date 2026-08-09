@@ -22,9 +22,11 @@ import { SessionMetrics } from "../utils";
 import { useProgressStore } from "../stores/progress";
 import { useMasteryStore } from "../stores/mastery";
 import { useStreakStore } from "../stores/streak";
+import { useWalletStore } from "../stores/wallet";
 import { FAST_RESPONSE_MS, FactFamily, MAX_STAGE, MasteryOutcome, OperatorGroup } from "../mastery";
 import { isStreakMilestone } from "../streak";
 import { SESSION_CLEAR_THRESHOLD } from "../milestones";
+import { CLEAN_SESSION_REWARD, streakMilestoneReward } from "../wallet";
 
 const FOLLOW_UP_BATCH_SIZE = 4;
 // How long a correct answer stays on screen before the next question (or the
@@ -39,6 +41,10 @@ const ZIGGY_REVEAL_MS = 2600;
 const MISS_LIMIT = 2;
 const STREAK_TOAST_MS = 2500;
 
+// What a streak milestone is worth to the player: the count Ziggy is annoyed
+// about, and what he actually paid for it (which the cap can clip to 0).
+export type StreakPayout = { streak: number; tokens: number };
+
 const EMPTY_QUESTION: Question = {
   operator: "+",
   familyKey: "",
@@ -51,6 +57,7 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
   const progressStore = useProgressStore();
   const mastery = useMasteryStore();
   const streak = useStreakStore();
+  const wallet = useWalletStore();
 
   const questions = ref<Question[]>([]);
   const questionIndex = ref(0);
@@ -64,7 +71,12 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
   // hand-off, since there's a line to read before the next question lands.
   const ziggyReveal = ref<Question | null>(null);
   // Auto-clears itself, so nothing has to remember to take the toast down.
-  const streakMilestone = refAutoReset<number | null>(null, STREAK_TOAST_MS);
+  const streakMilestone = refAutoReset<StreakPayout | null>(null, STREAK_TOAST_MS);
+  // Ziggy's side of the economy for this session: what he's paid out so far,
+  // and whether the end-of-session bonus for asking him for nothing landed.
+  const tokensEarned = ref(0);
+  const cleanSessionBonus = ref(0);
+  const hintsBought = ref(0);
   // True from the moment a question is answered correctly until the next one
   // is on screen. Nothing about the current question may change in that
   // window — without it, a double-tap during the hand-off records a spurious
@@ -161,11 +173,16 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     }
   }
 
+  // The streak is the earning engine now, not a guilt meter: every milestone
+  // it celebrates also pays. Spending resets the streak, which is what puts a
+  // player who just bought help back on the cheap early milestones.
   function recordStreak() {
     if (hintUsedThisQuestion.value) return;
     const newStreak = streak.recordClean();
     if (isStreakMilestone(newStreak)) {
-      streakMilestone.value = newStreak;
+      const paid = wallet.earn(streakMilestoneReward(newStreak));
+      tokensEarned.value += paid;
+      streakMilestone.value = { streak: newStreak, tokens: paid };
       playSound("streak_milestone");
       celebrate(0.15);
     }
@@ -271,7 +288,12 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     questions.value = buildInitialQuestions(g, targetFamilies, {
       getMastery: (key) => mastery.getFamily(key),
     });
-    hints.refill();
+    // The wallet carries over between sessions, so there's nothing to refill —
+    // only a stale reveal-flash timer to cancel.
+    hints.cancelRevealFlash();
+    tokensEarned.value = 0;
+    cleanSessionBonus.value = 0;
+    hintsBought.value = 0;
     summary.value = null;
     questionIndex.value = 0;
     progressValue.value = 0;
@@ -288,6 +310,11 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     const g = toValue(group);
     if (!g) return;
     playSound("level_end");
+    // Asked Ziggy for nothing all session, so he pays. Deliberately not tied
+    // to the score: a player who's struggling but never buys help still earns,
+    // which is what keeps an empty wallet from staying empty.
+    cleanSessionBonus.value = hintsBought.value === 0 ? wallet.earn(CLEAN_SESSION_REWARD) : 0;
+    tokensEarned.value += cleanSessionBonus.value;
     const result = metrics.endSession();
     summary.value = result;
     isNewBest.value = progressStore.recordSessionResult(g, result);
@@ -301,8 +328,12 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     void sessionEnd.trigger(result);
   }
 
+  // A purchase, not a sin: the fact stays Ziggy's (no mastery credit) and the
+  // streak goes back to zero, but nothing here scolds — the player made a
+  // trade and paid the price up front.
   function markCheated() {
     hintUsedThisQuestion.value = true;
+    hintsBought.value += 1;
     streak.recordCheat();
     dismissStreakMilestone();
   }
@@ -325,6 +356,8 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     isNewBest,
     families,
     stageBefore,
+    tokensEarned,
+    cleanSessionBonus,
     // actions
     begin,
     chooseAnswer,

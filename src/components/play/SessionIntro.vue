@@ -2,16 +2,20 @@
 import { computed, ref, watch } from "vue";
 import ZiggySpeaks from "../mascot/ZiggySpeaks.vue";
 import FactFamilyShape from "../FactFamilyShape.vue";
+import TokenCount from "../TokenCount.vue";
 import { GROUP_LABELS } from "../../session";
 import { FactFamily, OperatorGroup } from "../../mastery";
 import { ZiggyPose } from "../../types";
 import { useMasteryStore } from "../../stores/mastery";
+import { NEW_CARD_COST, ZIGGY_PRICES } from "../../wallet";
 
 const props = defineProps<{
   group: OperatorGroup;
   families: FactFamily[];
   highlightedKey: string | null;
   bonusFamily?: FactFamily;
+  canAffordBonus: boolean;
+  tokens: number;
   focus: string;
 }>();
 
@@ -62,14 +66,40 @@ watch(
         :highlight="family.key === highlightedKey"
       />
     </div>
+    <!-- The whole menu, before a single token is spent: the two things you can
+         buy mid-question and the one you can buy right here. -->
+    <div
+      class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm"
+      data-testid="ziggy-prices"
+      aria-label="Ziggy's prices"
+    >
+      <span class="font-display font-bold">Ziggy's prices:</span>
+      <span v-for="price in ZIGGY_PRICES" :key="price.label" class="flex items-center gap-1">
+        {{ price.label }}
+        <TokenCount :count="price.cost" :label="`costs ${price.cost} tokens`" />
+      </span>
+      <!-- Basis-full on a phone so the balance gets its own line instead of
+           trailing off the end of a wrapped price list. -->
+      <span class="flex items-center gap-1 basis-full sm:basis-auto sm:ml-auto">
+        You have
+        <TokenCount
+          :count="tokens"
+          :label="`${tokens} tokens to spend`"
+          data-testid="hint-tokens"
+        />
+      </span>
+    </div>
     <div class="flex flex-wrap items-center gap-4">
       <button
         v-if="bonusFamily"
         class="btn btn-secondary"
         @click="emit('bonus')"
+        :disabled="!canAffordBonus"
+        :title="canAffordBonus ? undefined : `You need ${NEW_CARD_COST} tokens for a new card`"
         data-testid="bonus-fact-button"
       >
-        Ask Ziggy for a bonus fact
+        Buy a new card
+        <TokenCount :count="NEW_CARD_COST" :label="`costs ${NEW_CARD_COST} tokens`" />
       </button>
       <form class="flex items-center gap-2" @submit.prevent="emit('focus', focusInput)">
         <input

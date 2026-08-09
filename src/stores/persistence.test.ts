@@ -7,7 +7,9 @@ import { useProgressStore } from "./progress";
 import { useMasteryStore } from "./mastery";
 import { useStreakStore } from "./streak";
 import { useCurriculumStore } from "./curriculum";
+import { useWalletStore } from "./wallet";
 import { SessionSummary } from "../types";
+import { STARTING_TOKENS } from "../wallet";
 
 // Pinia only activates plugins once installed on a real app (pinia.use()
 // before that just queues them), so each "reload" needs a fresh app + pinia
@@ -89,6 +91,18 @@ describe("store persistence round-trips", () => {
 
     freshPinia();
     expect(useCurriculumStore().active.add).toEqual(seeded);
+  });
+
+  it("survives a simulated reload for the token wallet", () => {
+    // The whole point of Phase 13's wallet: what you didn't spend today is
+    // still in your pocket tomorrow.
+    freshPinia();
+    const wallet = useWalletStore();
+    wallet.spend(2);
+    wallet.$persist();
+
+    freshPinia();
+    expect(useWalletStore().tokens).toBe(STARTING_TOKENS - 2);
   });
 
   it("defaults to fresh state when nothing was ever persisted", () => {

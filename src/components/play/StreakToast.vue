@@ -1,14 +1,16 @@
 <script lang="ts" setup>
 import ZiggyImage from "../mascot/ZiggyImage.vue";
+import TokenCount from "../TokenCount.vue";
+import { StreakPayout } from "../../composables/usePlaySession";
 
 defineProps<{
   // null when there's no milestone to celebrate right now.
-  streak: number | null;
+  milestone: StreakPayout | null;
 }>();
 </script>
 <template>
   <div
-    v-if="streak"
+    v-if="milestone"
     class="toast toast-top toast-center z-10 animate-bounce"
     role="status"
     data-testid="streak-milestone"
@@ -19,7 +21,17 @@ defineProps<{
         class="h-9 w-9 shrink-0 rounded-full bg-base-100"
         label="Ziggy, outfoxed"
       />
-      <span>You outfoxed Ziggy! {{ streak }} cheat-free streak!</span>
+      <!-- The streak is what earns; a milestone that paid nothing only ever
+           means the wallet is already full, which is worth saying out loud. -->
+      <span class="flex items-center gap-1" v-if="milestone.tokens > 0">
+        {{ milestone.streak }} in a row! Ziggy pays you
+        <TokenCount
+          :count="milestone.tokens"
+          :label="`${milestone.tokens} tokens earned`"
+          class="text-lg"
+        />
+      </span>
+      <span v-else>{{ milestone.streak }} in a row! Your pockets are already full.</span>
     </div>
   </div>
 </template>

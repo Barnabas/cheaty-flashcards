@@ -4,6 +4,8 @@
 
 Phase 11: `@vueuse/core` (runtime dependency — `useTimeoutFn`, `refAutoReset`, `useConfirmDialog` and `createEventHook` back the session runtime and the leave-confirmation guard; prefer it over bespoke timer/dialog code from here on). Credited on the About page as VueUse.
 
+Phase 13: no library changes — the token wallet is a Pinia store plus a pure rules module, and `TokenCount.vue` is 12 lines of existing Feather icon.
+
 **Removed:** nothing yet — `howler`, `@unhead/vue`, `@fontsource-variable/fredoka`, daisyUI/Tailwind all stay.
 
 **Deleted:** Phase 9 deleted `src/components/MasteryGrid.vue`/`.test.ts` (the 8x8 mastery heatmap — the home page shows active-family tiles instead) and `src/components/mascot/FoxMascot.vue` (hand-coded flat SVG mascot, superseded by the painted assets behind `ZiggyImage.vue`). `src/components/SiteFooter.vue` was a dead placeholder until Phase 10 repurposed it as the real footer (About link + barnabas.me), mounted in `App.vue`. Phase 8 deleted `src/pages/SectionPage.vue`, `src/components/LevelLinks.vue` (per-operator level-list page, obsolete once sessions are dynamic), and `src/sections.ts`/`src/sections.test.ts` (the `Section`/level-shaped question generator — superseded by `src/session.ts` + `src/curriculum.ts`; not explicitly named in this list before landing, but a natural consequence of the same cleanup — see [plan-notes/phase-8.md](./plan-notes/phase-8.md)).

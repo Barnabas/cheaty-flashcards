@@ -3,7 +3,8 @@ import IconHint from "~icons/feather/zap";
 import IconEliminate from "~icons/feather/eye-off";
 import { computed } from "vue";
 import ZiggyImage from "../mascot/ZiggyImage.vue";
-import { ELIMINATE_COST, REVEAL_COST } from "../../composables/useHintTokens";
+import TokenCount from "../TokenCount.vue";
+import { ELIMINATE_COST, REVEAL_COST } from "../../wallet";
 
 const props = defineProps<{
   hintTokens: number;
@@ -16,7 +17,8 @@ const emit = defineEmits<{
   reveal: [];
 }>();
 
-// Running low on tokens is worth noticing before you're stuck with none.
+// Running low is worth noticing before you're stuck with none — and since
+// Phase 13 the wallet doesn't refill at the start of the next session either.
 const tokenClass = computed(() => ({
   "text-success": props.hintTokens >= REVEAL_COST,
   "text-warning": props.hintTokens >= ELIMINATE_COST && props.hintTokens < REVEAL_COST,
@@ -33,7 +35,8 @@ const tokenClass = computed(() => ({
         data-testid="eliminate-button"
       >
         <IconEliminate />
-        Ask Ziggy to hide 2 ({{ ELIMINATE_COST }})
+        Hide 2
+        <TokenCount :count="ELIMINATE_COST" :label="`costs ${ELIMINATE_COST} tokens`" />
       </button>
       <button
         class="btn btn-accent tracking-wide"
@@ -42,14 +45,19 @@ const tokenClass = computed(() => ({
         data-testid="reveal-button"
       >
         <IconHint />
-        Beg Ziggy to reveal it ({{ REVEAL_COST }})
+        Show me the answer
+        <TokenCount :count="REVEAL_COST" :label="`costs ${REVEAL_COST} tokens`" />
       </button>
     </div>
     <div class="flex items-center gap-2">
       <ZiggyImage pose="mark" class="w-8 h-8 shrink-0 rounded-full bg-base-200" />
-      <div class="flex gap-1 items-center" :class="tokenClass" data-testid="hint-tokens">
-        <IconHint class="inline-block" v-for="_hint in hintTokens" />
-      </div>
+      <TokenCount
+        :count="hintTokens"
+        :label="`${hintTokens} tokens to spend`"
+        :class="tokenClass"
+        class="text-lg"
+        data-testid="hint-tokens"
+      />
     </div>
   </div>
 </template>

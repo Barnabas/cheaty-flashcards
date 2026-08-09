@@ -24,14 +24,22 @@ export const useCurriculumStore = defineStore("curriculum", {
         .map((key) => familyFor(group, key))
         .filter((f): f is FactFamily => f !== undefined);
     },
-    // Auto-unlocks the next family once the active set shows solid mastery.
-    // Returns the newly unlocked family, or undefined if not ready yet / the
-    // whole pool is already active.
+    // Auto-unlocks the next family once `scope` shows solid mastery. Callers
+    // pass the table a session just played (Phase 12) — "win every card at
+    // the table and Ziggy deals a new one" is the game's one rule, and an
+    // empty scope never unlocks, so nothing is dealt for a session that
+    // wasn't played. Defaults to the whole active set, which is what the rule
+    // meant back when a session targeted all of it. Returns the newly
+    // unlocked family, or undefined if not ready yet / the whole pool is
+    // already active.
     tryAutoUnlock(
       group: OperatorGroup,
       getMastery: (key: string) => FamilyMastery | undefined,
+      // Defaulted in the body, not the signature: Pinia's `this` isn't typed
+      // yet in a default parameter expression.
+      scope?: FactFamily[],
     ): FactFamily | undefined {
-      if (!isReadyToUnlock(this.activeFamilies(group), getMastery)) return undefined;
+      if (!isReadyToUnlock(scope ?? this.activeFamilies(group), getMastery)) return undefined;
       const next = nextFamilyToUnlock(group, this.active[group]);
       if (next) this.active[group].push(next.key);
       return next;

@@ -184,6 +184,39 @@ describe("selectFamilies", () => {
     expect(result).toHaveLength(10);
   });
 
+  it("never repeats a family when sampling `distinct`", () => {
+    const result = selectFamilies(pool, () => undefined, 4, { rng: () => 0.5, distinct: true });
+    expect(result).toHaveLength(4);
+    expect(new Set(result.map((f) => f.key)).size).toBe(4);
+  });
+
+  it("returns the whole pool, not an infinite loop, when `distinct` runs out", () => {
+    const result = selectFamilies(pool, () => undefined, 99, { rng: () => 0.5, distinct: true });
+    expect(result).toHaveLength(pool.length);
+  });
+
+  it("still weights by mastery when sampling `distinct`", () => {
+    const weak = pool[0];
+    const mastered: Record<string, FamilyMastery> = {};
+    for (const f of pool) {
+      if (f.key !== weak.key)
+        mastered[f.key] = { stage: MAX_STAGE, timesSeen: 1, timesCorrect: 1, lastSeen: null };
+    }
+    let seed = 42;
+    const rng = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    let firstPickedWeak = 0;
+    for (let i = 0; i < 200; i++) {
+      const result = selectFamilies(pool, (key) => mastered[key], 2, { rng, distinct: true });
+      if (result[0].key === weak.key) firstPickedWeak += 1;
+    }
+    // Weight 6 against 5 mastered families at weight 1 -> roughly 6/11 of
+    // first picks, versus 1/6 if distinctness had flattened the weights.
+    expect(firstPickedWeak / 200).toBeGreaterThan(0.4);
+  });
+
   it("boosts families via weightMultiplier on top of mastery weight", () => {
     const boosted = pool[0];
     let seed = 5;

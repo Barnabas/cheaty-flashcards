@@ -23,7 +23,7 @@ src/
   types.ts          shared types (Question, AnswerType, SessionSummary, ...)
   mastery.ts         fact-family model + Leitner mastery engine + weighted sampling
   curriculum.ts       progressive curriculum: starter set, unlock logic
-  session.ts          buildQuestion() + dynamic session composition/end-conditions
+  session.ts          buildQuestion() + session composition: table seating, end-conditions
   dashboard.ts        pure helpers for the home page (Ziggy's greeting copy, stage colors)
   milestones.ts        session-outcome badge threshold helper
   sounds.ts          Howler sound effect wrappers (playSound())
@@ -47,6 +47,7 @@ src/
     play/SessionOutro.vue    score table, Ziggy's reaction, family recap, next actions
     play/QuestionCard.vue    the sum and its answer buttons
     play/CheatControls.vue   eliminate/reveal buttons + token counter
+    play/ZiggyReveal.vue     Ziggy showing the answer after a second miss
     play/StreakToast.vue, play/SessionProgress.vue, play/LeaveSessionModal.vue
   assets/sounds/     mp3 files played via howler
   assets/ziggy/      mascot source art (1024px PNG); web/ holds the small WebP
@@ -54,5 +55,7 @@ src/
 ```
 
 Routing is `/`, `/play/:group` (`group` is `"add"` or `"multiply"`, passed in as a string prop) and `/about`. `PlayPage.vue` validates it against the two known groups and redirects to `/` otherwise — this guards against arbitrary/stale URLs. A session is generated fresh from the player's current curriculum/mastery state each time; there's no per-session URL (the one legitimate case for a shareable link — practicing specific numbers — is still supported via `?focus=7,8` on `/play/:group`). See [plan-notes/phase-8.md](./plan-notes/phase-8.md) for the full design.
+
+A session doesn't practice everything the player has in play: it seats a _table_ of at most six fact families, and its end condition is a clean pass on that table, so session length stops growing with the collection. Winning every card at the table is also what unlocks the next family. See [plan-notes/phase-12.md](./plan-notes/phase-12.md).
 
 See also: [maintainer-notes.md](./maintainer-notes.md) for gotchas specific to this codebase.

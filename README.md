@@ -1,6 +1,6 @@
 # Cheaty Flashcards
 
-A single-page math flashcard game for kids. Pick a group (Addition & Subtraction, or Multiplication & Division) and practice a dynamically generated session of multiple-choice arithmetic questions, drawn from a per-player fact-family curriculum that unlocks gradually as mastery builds. There's a hint-token budget that lets you "ask Ziggy" to eliminate wrong answers or reveal the correct one — at the cost of mastery credit for that fact — hence the name.
+A single-page math flashcard game for kids. Pick a group (Addition & Subtraction, or Multiplication & Division) and practice a short session of multiple-choice arithmetic questions. Each session seats a handful of fact families from a per-player curriculum that unlocks gradually as mastery builds, and ends once you've cleared them. There's a hint-token budget that lets you "ask Ziggy" to eliminate wrong answers or reveal the correct one — at the cost of mastery credit for that fact — hence the name.
 
 Live logic lives entirely client-side; there's no backend. Mastery, curriculum progress, and session bests persist locally via Pinia + `localStorage`, with optional JSON export/import for backup.
 

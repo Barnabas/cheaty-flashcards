@@ -4,6 +4,8 @@ import {
   SESSION_MAX_MS,
   SESSION_MAX_QUESTIONS,
   SessionFamilyStatus,
+  TABLE_MAX_SEATS,
+  TABLE_REVIEW_SEATS,
   buildFollowUpQuestions,
   buildInitialQuestions,
   buildQuestion,
@@ -12,8 +14,11 @@ import {
   isSessionComplete,
   permutationKey,
   resolveTargetFamilies,
+  selectTable,
 } from "./session";
-import { familyPool } from "./mastery";
+import { MAX_STAGE, familyPool } from "./mastery";
+import { UNLOCK_STAGE_THRESHOLD } from "./curriculum";
+import { FamilyMastery } from "./stores/types";
 
 function lcgRng(seed: number) {
   let state = seed;
@@ -63,6 +68,155 @@ describe("resolveTargetFamilies", () => {
   });
 });
 
+describe("selectTable", () => {
+  const pool = familyPool("add"); // all 36 families
+  const stubMastery = (stage: number): FamilyMastery => ({
+    stage,
+    timesSeen: 5,
+    timesCorrect: 5,
+    lastSeen: null,
+  });
+  // Everything won except the first `count` families, which are still in
+  // Ziggy's hand.
+  function mostlyWon(count: number) {
+    const inHand = new Set(pool.slice(0, count).map((f) => f.key));
+    return (key: string) => stubMastery(inHand.has(key) ? 0 : MAX_STAGE);
+  }
+
+  it("seats no more than a full table, however many families are in play", () => {
+    const table = selectTable(pool, () => undefined, { rng: lcgRng(1) });
+    expect(table).toHaveLength(TABLE_MAX_SEATS);
+  });
+
+  it("seats every family when there are fewer than a full table in play", () => {
+    const small = pool.slice(0, 4);
+    const table = selectTable(small, () => undefined, { rng: lcgRng(1) });
+    expect(new Set(table.map((f) => f.key))).toEqual(new Set(small.map((f) => f.key)));
+  });
+
+  it("never seats the same family twice", () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const table = selectTable(pool, () => undefined, { rng: lcgRng(seed) });
+      expect(new Set(table.map((f) => f.key)).size).toBe(table.length);
+    }
+  });
+
+  it("keeps all but the review seat for cards still in Ziggy's hand", () => {
+    const getMastery = mostlyWon(20);
+    for (let seed = 1; seed <= 25; seed++) {
+      const table = selectTable(pool, getMastery, { rng: lcgRng(seed) });
+      const won = table.filter((f) => getMastery(f.key).stage >= UNLOCK_STAGE_THRESHOLD);
+      expect(won).toHaveLength(TABLE_REVIEW_SEATS);
+    }
+  });
+
+  it("fills the spare seats with won cards once few are left in Ziggy's hand", () => {
+    // Only two families still unwon: they take two seats, review takes the
+    // rest rather than the table shrinking.
+    const getMastery = mostlyWon(2);
+    const table = selectTable(pool, getMastery, { rng: lcgRng(3) });
+    expect(table).toHaveLength(TABLE_MAX_SEATS);
+    const inHand = table.filter((f) => getMastery(f.key).stage < UNLOCK_STAGE_THRESHOLD);
+    expect(inHand).toHaveLength(2);
+  });
+
+  it("always seats a required family, whatever the weighting says", () => {
+    // A fully-mastered family at the end of the teaching order is about the
+    // least likely card to be seated on its own merits.
+    const required = pool[pool.length - 1];
+    const getMastery = (key: string) =>
+      stubMastery(key === required.key ? MAX_STAGE : UNLOCK_STAGE_THRESHOLD - 1);
+    for (let seed = 1; seed <= 25; seed++) {
+      const table = selectTable(pool, getMastery, {
+        rng: lcgRng(seed),
+        requiredKeys: [required.key],
+      });
+      expect(table.map((f) => f.key)).toContain(required.key);
+      expect(table).toHaveLength(TABLE_MAX_SEATS);
+    }
+  });
+
+  it("favours the weakest cards in Ziggy's hand", () => {
+    // One never-promoted family among 35 that are one step short of won —
+    // all in Ziggy's hand, so they compete for the same seats and the only
+    // thing separating them is mastery weight.
+    const weak = pool[10];
+    const peer = pool[11];
+    const getMastery = (key: string) =>
+      stubMastery(key === weak.key ? 0 : UNLOCK_STAGE_THRESHOLD - 1);
+    let weakSeated = 0;
+    let peerSeated = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const table = selectTable(pool, getMastery, { rng: lcgRng(seed) });
+      if (table.some((f) => f.key === weak.key)) weakSeated += 1;
+      if (table.some((f) => f.key === peer.key)) peerSeated += 1;
+    }
+    expect(weakSeated).toBeGreaterThan(peerSeated);
+  });
+});
+
+// Plays a whole session out over the pure session API, mirroring what
+// usePlaySession does with it: seat a table, ask both operators of every
+// seated family, then keep drawing follow-up batches until the table is clean
+// or the hard cap stops things. `missChance` is the odds of the simulated
+// player getting a question wrong; the two-miss rule means a missed question
+// simply ends uncleared rather than being tapped at until it's right.
+function simulateSession(options: {
+  pool: ReturnType<typeof familyPool>;
+  rng: () => number;
+  missChance: number;
+}) {
+  const { pool, rng, missChance } = options;
+  const table = selectTable(pool, () => undefined, { rng });
+  const targetKeys = buildSessionTargetKeys("add", table);
+  const statuses: Record<string, SessionFamilyStatus> = Object.fromEntries(
+    targetKeys.map((key) => [key, "pending" as const]),
+  );
+  const questions = buildInitialQuestions("add", table);
+
+  let asked = 0;
+  for (let index = 0; ; index++) {
+    if (index >= questions.length) {
+      questions.push(...buildFollowUpQuestions("add", table, statuses, 4, { rng }));
+    }
+    const question = questions[index];
+    asked += 1;
+    statuses[permutationKey(question.familyKey, question.operator)] =
+      rng() < missChance ? "retry" : "clean";
+    if (isSessionComplete(statuses, targetKeys)) return { asked, cleanPass: true };
+    // Elapsed time is left at 0: this measures the question cap, and the
+    // simulated player answers instantly.
+    if (hasReachedHardCap(asked, 0)) return { asked, cleanPass: false };
+  }
+}
+
+describe("session length", () => {
+  const pool = familyPool("add"); // the endgame: all 36 families in play
+
+  it("is completable with every family in play, and short", () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const result = simulateSession({ pool, rng: lcgRng(seed), missChance: 0 });
+      expect(result.cleanPass).toBe(true);
+      // Both operators of every seated family, and not one question more —
+      // the session's floor is the table, not the collection.
+      expect(result.asked).toBe(TABLE_MAX_SEATS * 2);
+    }
+  });
+
+  it("still ends on a clean pass for a player missing a quarter of the time", () => {
+    let cleanPasses = 0;
+    let total = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const result = simulateSession({ pool, rng: lcgRng(seed), missChance: 0.25 });
+      if (result.cleanPass) cleanPasses += 1;
+      total += result.asked;
+    }
+    // The hard cap is meant to be a rare fallback, not the usual ending.
+    expect(cleanPasses / 200).toBeGreaterThan(0.9);
+    expect(total / 200).toBeLessThan(SESSION_MAX_QUESTIONS);
+  });
+});
+
 describe("buildInitialQuestions", () => {
   it("produces exactly two questions per family, one for each operator", () => {
     const families = familyPool("add", 2, 4);
@@ -101,7 +255,7 @@ describe("buildFollowUpQuestions", () => {
     expect(questions).toHaveLength(15);
   });
 
-  it("biases heavily toward permutations marked 'retry'", () => {
+  it("asks only about permutations that still need clearing", () => {
     const retryFamily = pool[0];
     // Every permutation clean except one operator of one family.
     const statuses: Record<string, SessionFamilyStatus> = Object.fromEntries(
@@ -110,16 +264,22 @@ describe("buildFollowUpQuestions", () => {
     statuses[permutationKey(retryFamily.key, "+")] = "retry";
 
     const questions = buildFollowUpQuestions("add", pool, statuses, 2000, { rng: lcgRng(11) });
-    const retryCount = questions.filter(
-      (q) => q.familyKey === retryFamily.key && q.operator === "+",
-    ).length;
-    // retry permutation gets weight 1*4=4 vs 11 clean permutations at weight 1
-    // each (total 11) -> expected share ~4/15 ~= 0.27, well above an
-    // unboosted ~1/12.
-    expect(retryCount / questions.length).toBeGreaterThan(0.18);
+    // Not "mostly" — re-asking a clean permutation can only knock it back to
+    // "retry", so a session's follow-ups never do it.
+    expect(questions.every((q) => q.familyKey === retryFamily.key && q.operator === "+")).toBe(
+      true,
+    );
   });
 
-  it("biases just as heavily toward permutations never seen this session ('pending')", () => {
+  it("falls back to the full set if asked for a batch with nothing left to clear", () => {
+    const statuses: Record<string, SessionFamilyStatus> = Object.fromEntries(
+      buildSessionTargetKeys("add", pool).map((key) => [key, "clean" as const]),
+    );
+    const questions = buildFollowUpQuestions("add", pool, statuses, 10, { rng: lcgRng(4) });
+    expect(questions).toHaveLength(10);
+  });
+
+  it("treats permutations never seen this session ('pending') as needing clearing too", () => {
     // No statuses recorded at all — every permutation is implicitly pending,
     // so every permutation should get an equal, boosted share, not just the
     // ones explicitly marked "retry".

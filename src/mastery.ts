@@ -113,19 +113,25 @@ export type SelectFamiliesOptions = {
   // e.g. a session generator boosting families it wants re-drilled this
   // session. Defaults to a no-op (weight ×1) for existing callers.
   weightMultiplier?: (key: string) => number;
+  // Sample without replacement: no family comes back twice, and fewer than
+  // `count` come back when the candidate pool is smaller. Seating a session's
+  // table (Phase 12) needs distinct families; per-question sampling
+  // deliberately doesn't, since repetition there is the point.
+  distinct?: boolean;
 };
 
-// Weighted sample (with replacement) of `count` families from `pool`, biased
-// toward whatever `getMastery` reports as low-stage. `focusNumbers`
-// restricts the pool to families touching at least one of those numbers,
-// falling back to the full pool if that filter would leave nothing.
+// Weighted sample of `count` families from `pool`, biased toward whatever
+// `getMastery` reports as low-stage. With replacement unless `distinct` is
+// set. `focusNumbers` restricts the pool to families touching at least one of
+// those numbers, falling back to the full pool if that filter would leave
+// nothing.
 export function selectFamilies(
   pool: FactFamily[],
   getMastery: (key: string) => FamilyMastery | undefined,
   count: number,
   options: SelectFamiliesOptions = {},
 ): FactFamily[] {
-  const { focusNumbers, rng = Math.random, weightMultiplier = () => 1 } = options;
+  const { focusNumbers, rng = Math.random, weightMultiplier = () => 1, distinct } = options;
   let candidates = pool;
   if (focusNumbers && focusNumbers.length > 0) {
     const focusSet = new Set(focusNumbers);
@@ -134,6 +140,21 @@ export function selectFamilies(
   }
 
   const weights = candidates.map((f) => familyWeight(getMastery(f.key)) * weightMultiplier(f.key));
+  if (distinct) {
+    // Copies, because each pick is spliced out of the running candidate set.
+    const remaining = [...candidates];
+    const remainingWeights = [...weights];
+    const result: FactFamily[] = [];
+    while (result.length < count && remaining.length > 0) {
+      const pick = weightedPick(remaining, remainingWeights, rng);
+      const index = remaining.indexOf(pick);
+      remaining.splice(index, 1);
+      remainingWeights.splice(index, 1);
+      result.push(pick);
+    }
+    return result;
+  }
+
   const result: FactFamily[] = [];
   for (let i = 0; i < count; i++) {
     result.push(weightedPick(candidates, weights, rng));

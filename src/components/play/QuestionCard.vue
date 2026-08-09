@@ -22,7 +22,10 @@ function answerButtonClass(index: number) {
 }
 </script>
 <template>
-  <div class="flex gap-8 text-8xl font-bold font-display justify-center">
+  <div
+    class="flex gap-8 text-8xl font-bold font-display justify-center"
+    data-testid="question-card"
+  >
     <span>{{ question.factors[0] }}</span>
     <span>{{ question.operator }}</span>
     <span>{{ question.factors[1] }}</span>

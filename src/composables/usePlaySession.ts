@@ -30,6 +30,13 @@ const FOLLOW_UP_BATCH_SIZE = 4;
 // How long a correct answer stays on screen before the next question (or the
 // outro) takes over.
 const HAND_OFF_MS = 500;
+// Ziggy's own reveal has a sentence to read on top of the answer, so it holds
+// the screen much longer than a green flash does.
+const ZIGGY_REVEAL_MS = 2600;
+// Misses allowed per question before Ziggy takes it back and shows the answer
+// himself. Two, so a slip has a second chance but tapping every button never
+// gets you to the right one.
+const MISS_LIMIT = 2;
 const STREAK_TOAST_MS = 2500;
 
 const EMPTY_QUESTION: Question = {
@@ -50,8 +57,12 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
   const answerTypes = ref<Record<number, AnswerType>>({});
   const summary = ref<SessionSummary | null>(null);
   const isNewBest = ref(false);
-  const hadWrongThisQuestion = ref(false);
+  const missesThisQuestion = ref(0);
   const hintUsedThisQuestion = ref(false);
+  // The question Ziggy has taken over after a second miss — non-null only
+  // while he's on screen showing the answer himself. Also stretches the
+  // hand-off, since there's a line to read before the next question lands.
+  const ziggyReveal = ref<Question | null>(null);
   // Auto-clears itself, so nothing has to remember to take the toast down.
   const streakMilestone = refAutoReset<number | null>(null, STREAK_TOAST_MS);
   // True from the moment a question is answered correctly until the next one
@@ -88,9 +99,10 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
 
   // How much of the session's end condition is met: one step per (family,
   // operator) permutation cleared, so the bar fills exactly as the session
-  // approaches its real ending. It's high-water-marked because a follow-up
-  // question can knock an already-clean permutation back to "retry", and a
-  // progress bar that walks backwards reads as lost work.
+  // approaches its real ending. The high-water mark is belt-and-braces since
+  // Phase 12 stopped follow-up batches re-asking clean permutations — but a
+  // bar that walks backwards reads as lost work, and Phases 14/16 are going
+  // to put cards back in play mid-session on purpose.
   const clearedTargetCount = computed(
     () => targetKeys.value.filter((key) => familyStatus.value[key] === "clean").length,
   );
@@ -100,6 +112,9 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     if (cleared > progressValue.value) progressValue.value = cleared;
   });
 
+  // Read by useTimeoutFn at start() time, so setting `ziggyReveal` before
+  // handing off is what buys the longer pause.
+  const handOffMs = computed(() => (ziggyReveal.value ? ZIGGY_REVEAL_MS : HAND_OFF_MS));
   const { start: startHandOff, stop: stopHandOff } = useTimeoutFn(
     (isFinalAnswer: boolean) => {
       if (isFinalAnswer) {
@@ -110,11 +125,12 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
       questionIndex.value += 1;
       ensureQueueHasNext();
       answerTypes.value = {};
-      hadWrongThisQuestion.value = false;
+      missesThisQuestion.value = 0;
       hintUsedThisQuestion.value = false;
+      ziggyReveal.value = null;
       isResolving.value = false;
     },
-    HAND_OFF_MS,
+    handOffMs,
     { immediate: false },
   );
 
@@ -131,7 +147,7 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     let outcome: MasteryOutcome;
     if (hintUsedThisQuestion.value) {
       outcome = "cheated";
-    } else if (hadWrongThisQuestion.value) {
+    } else if (missesThisQuestion.value > 0) {
       outcome = "correct-slow";
     } else {
       const elapsed = Date.now() - metrics.questionStart;
@@ -208,12 +224,34 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
       metrics.answerQuestion("wrong");
       playSound("wrong");
       answerTypes.value[index] = "wrong";
-      if (!hadWrongThisQuestion.value) {
-        hadWrongThisQuestion.value = true;
+      missesThisQuestion.value += 1;
+      // The family takes its hit once per question, on the first miss — a
+      // second miss is the same question still being wrong, not a second
+      // demotion.
+      if (missesThisQuestion.value === 1) {
         mastery.recordAttempt(currentQuestion.value.familyKey, "wrong");
         familyStatus.value[currentPermutationKey()] = "retry";
       }
+      if (missesThisQuestion.value >= MISS_LIMIT) ziggyTakesTheCard();
     }
+  }
+
+  // Second miss: Ziggy shows the answer himself, for free, and play moves on.
+  // The permutation stays "retry" so the session will come back to it, but
+  // there's nothing left to tap — which is what stops working through every
+  // button from ever being a strategy.
+  function ziggyTakesTheCard() {
+    isResolving.value = true;
+    dismissStreakMilestone();
+    hints.cancelRevealFlash();
+    const correctIndex = currentAnswers.value.findIndex(
+      (answer) => answer === currentQuestion.value.correct,
+    );
+    if (correctIndex >= 0) answerTypes.value[correctIndex] = "hint";
+    ziggyReveal.value = currentQuestion.value;
+
+    const elapsed = Date.now() - metrics.sessionStart;
+    startHandOff(hasReachedHardCap(metrics.questionsTotal, elapsed));
   }
 
   function begin(targetFamilies: FactFamily[]) {
@@ -240,8 +278,9 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     answerTypes.value = {};
     dismissStreakMilestone();
     stopHandOff();
-    hadWrongThisQuestion.value = false;
+    missesThisQuestion.value = 0;
     hintUsedThisQuestion.value = false;
+    ziggyReveal.value = null;
     isResolving.value = false;
   }
 
@@ -278,6 +317,7 @@ export function usePlaySession(group: MaybeRefOrGetter<OperatorGroup | undefined
     eliminateWrong: hints.eliminate,
     revealAnswer: hints.reveal,
     streakMilestone,
+    ziggyReveal,
     progressValue,
     progressMax,
     // what the outro renders

@@ -15,6 +15,7 @@ const settings = useSettingsStore();
 // one place the rules get spelled out, so it's worth the extra lines.
 const helpLines = [
   "I'm Ziggy. Answer right and you move on — or ask me for a favour.",
+  "Miss twice on the same question and I show you the answer myself, and the card stays mine.",
   "Hide 2 wrong answers costs 1 hint token. Beg me to reveal it costs 3. You get 5 a session.",
   "Careful though: I don't teach you anything. Facts you cheat on don't count toward mastering them, and it snaps your cheat-free streak.",
   "Keep that streak alive long enough and you've officially outfoxed me.",

@@ -10,6 +10,7 @@ import { useStreakStore } from "../stores/streak";
 import { useMasteryStore } from "../stores/mastery";
 import { useCurriculumStore } from "../stores/curriculum";
 import { familyPool } from "../mastery";
+import { TABLE_MAX_SEATS } from "../session";
 
 // Deterministic, fixed-correct-answer questions so tests don't have to fight
 // shuffle()/Math.random() — mirrors the family list they're given (real
@@ -96,6 +97,151 @@ describe("PlayPage intro", () => {
     // touches 3, so this is a real, deterministic restriction.
     const { wrapper } = await mountPlay({ familyCount: 4, query: "?focus=3" });
     expect(wrapper.findAll('[data-testid="fact-family-shape"]')).toHaveLength(1);
+  });
+
+  it("reseats the table when the focus numbers change", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 36 });
+    await wrapper.get('input[type="text"]').setValue("3");
+    await wrapper.get("form").trigger("submit");
+    await flushPromises();
+
+    const seated = wrapper.findAll('[data-testid="fact-family-shape"]');
+    expect(seated).toHaveLength(TABLE_MAX_SEATS);
+    // Eight families touch 3, so the table is a real subset of them rather
+    // than the table it was seated with before the focus was typed. Read off
+    // the factors in FactFamilyShape's title ("3 & 7 = 10 (stage 0/5)") — the
+    // rendered digits would also match a sum like 13.
+    const factors = seated.map((shape) =>
+      shape.get("[title]").attributes("title")!.split(" = ")[0].split(" & "),
+    );
+    expect(factors.every((pair) => pair.includes("3"))).toBe(true);
+  });
+
+  it("seats a table of at most TABLE_MAX_SEATS however much is in play", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 36 });
+    expect(wrapper.findAll('[data-testid="fact-family-shape"]')).toHaveLength(TABLE_MAX_SEATS);
+  });
+
+  it("plays only the seated table, not everything in play", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 36 });
+    const seated = wrapper
+      .findAll('[data-testid="fact-family-shape"]')
+      .map((shape) => shape.text());
+    await startSession(wrapper);
+    vi.useFakeTimers();
+
+    // Both operators of all six seated families, and then the session is
+    // over — a 36-family session could never have ended this way.
+    for (let i = 0; i < TABLE_MAX_SEATS * 2; i++) {
+      await answerButtons(wrapper)
+        .find((b) => b.text() === "2")!
+        .trigger("click");
+      vi.advanceTimersByTime(500);
+      await nextTick();
+    }
+    await flushPromises();
+    expect(wrapper.find('[data-testid="session-summary"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid="fact-family-shape"]').map((s) => s.text())).toEqual(
+      seated,
+    );
+  });
+});
+
+describe("PlayPage two-miss rule", () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Two distinct wrong answers on the same question.
+  async function missTwice(wrapper: PlayWrapper) {
+    for (const label of ["3", "4"]) {
+      await answerButtons(wrapper)
+        .find((b) => b.text() === label)!
+        .trigger("click");
+    }
+  }
+
+  it("has Ziggy show the answer after a second miss", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 4 });
+    await startSession(wrapper);
+    vi.useFakeTimers();
+
+    await missTwice(wrapper);
+
+    expect(wrapper.find('[data-testid="ziggy-reveal"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="ziggy-reveal"]').text()).toContain("is 2.");
+    // The correct answer is on screen too, flagged the same way a bought
+    // reveal flags it.
+    expect(
+      answerButtons(wrapper)
+        .find((b) => b.classes().includes("btn-info"))!
+        .text(),
+    ).toBe("2");
+  });
+
+  it("moves on by itself instead of waiting for the right answer", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 4 });
+    await startSession(wrapper);
+    vi.useFakeTimers();
+    const firstQuestion = wrapper.get('[data-testid="question-card"]').text();
+
+    await missTwice(wrapper);
+    // Tapping the correct answer during Ziggy's reveal changes nothing — the
+    // question is his now.
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "2")!
+      .trigger("click");
+    expect(wrapper.find('[data-testid="ziggy-reveal"]').exists()).toBe(true);
+
+    // Ziggy has a sentence to read, so his reveal holds the screen far longer
+    // than a correct answer's green flash does.
+    vi.advanceTimersByTime(500);
+    await nextTick();
+    expect(wrapper.find('[data-testid="ziggy-reveal"]').exists()).toBe(true);
+
+    vi.advanceTimersByTime(2100);
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="ziggy-reveal"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="question-card"]').text()).not.toBe(firstQuestion);
+    expect(answerButtons(wrapper).some((b) => b.classes().includes("btn-error"))).toBe(false);
+  });
+
+  it("takes the family down once for the question, not once per miss", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 4 });
+    const mastery = useMasteryStore();
+    const familyKey = familyPool("add")[0].key;
+    mastery.recordAttempt(familyKey, "correct-fast");
+    mastery.recordAttempt(familyKey, "correct-fast");
+    expect(mastery.getFamily(familyKey).stage).toBe(2);
+
+    await startSession(wrapper);
+    vi.useFakeTimers();
+    await missTwice(wrapper);
+
+    // One demotion, not two — and no third "seen" for Ziggy's own reveal.
+    expect(mastery.getFamily(familyKey)).toMatchObject({ stage: 1, timesSeen: 3 });
+  });
+
+  it("does not end the session on a question Ziggy took", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 1 });
+    await startSession(wrapper);
+    vi.useFakeTimers();
+
+    // Clear "+", then lose "-" twice: the table isn't clean, so the session
+    // keeps going rather than counting a taken card as a pass.
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "2")!
+      .trigger("click");
+    vi.advanceTimersByTime(500);
+    await nextTick();
+
+    await missTwice(wrapper);
+    vi.advanceTimersByTime(2600);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="session-summary"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="answer-button"]').exists()).toBe(true);
   });
 });
 

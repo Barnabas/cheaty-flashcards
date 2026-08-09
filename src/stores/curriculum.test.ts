@@ -57,6 +57,41 @@ describe("useCurriculumStore", () => {
       expect(curriculum.activeFamilies("add")).toHaveLength(STARTER_FAMILY_COUNT + 1);
       expect(curriculum.active.add).toContain(unlocked!.key);
     });
+
+    it("judges only the given scope — the table just played, not everything in play", () => {
+      const curriculum = useCurriculumStore();
+      curriculum.active.add = familyPool("add")
+        .slice(0, 20)
+        .map((f) => f.key);
+      const table = curriculum.activeFamilies("add").slice(0, 5);
+      const tableKeys = new Set(table.map((f) => f.key));
+      const good: FamilyMastery = {
+        stage: UNLOCK_STAGE_THRESHOLD,
+        timesSeen: UNLOCK_MIN_SEEN,
+        timesCorrect: 0,
+        lastSeen: null,
+      };
+      const untouched: FamilyMastery = { stage: 0, timesSeen: 0, timesCorrect: 0, lastSeen: null };
+      const getMastery = (key: string) => (tableKeys.has(key) ? good : untouched);
+
+      // The other 15 families are nowhere near ready, which under the old
+      // whole-active-set rule would have blocked the deal indefinitely.
+      expect(curriculum.tryAutoUnlock("add", getMastery, table)).toBeDefined();
+      expect(curriculum.activeFamilies("add")).toHaveLength(21);
+    });
+
+    it("never unlocks for an empty scope — nothing was played, nothing is dealt", () => {
+      const curriculum = useCurriculumStore();
+      curriculum.ensureSeeded("add");
+      const good: FamilyMastery = {
+        stage: UNLOCK_STAGE_THRESHOLD,
+        timesSeen: UNLOCK_MIN_SEEN,
+        timesCorrect: 0,
+        lastSeen: null,
+      };
+      expect(curriculum.tryAutoUnlock("add", () => good, [])).toBeUndefined();
+      expect(curriculum.activeFamilies("add")).toHaveLength(STARTER_FAMILY_COUNT);
+    });
   });
 
   describe("unlockBonus", () => {

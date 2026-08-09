@@ -26,13 +26,17 @@ const mastery = useMasteryStore();
 // Ziggy tops and tails a session: here he says what's on the table (and is
 // the only thing that explains the highlighted "New!" card). Nothing else on
 // this screen is him, so the one appearance has one job.
+//
+// `families` is a freshly seated table since Phase 12, not the player's whole
+// active set — so the middle line no longer claims these are the same facts
+// as last time, because usually they aren't.
 const lines = computed(() => {
   if (props.highlightedKey) {
     return ["Something new for you today — the card that's glowing. The rest you've met before."];
   }
   const seenAny = props.families.some((f) => mastery.getFamily(f.key).timesSeen > 0);
   return seenAny
-    ? ["Same facts as last time. Show me you've still got them."]
+    ? ["Here's what I'm putting on the table. Show me you've still got them."]
     : ["These are the ones we're starting with. Try not to need me."];
 });
 const pose = computed<ZiggyPose>(() => (props.highlightedKey ? "gleeful" : "wink"));

@@ -4,7 +4,7 @@ Living plan index. Update checkboxes and add a one-to-three sentence summary as 
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-08-08 (Act 2 underway — see [docs/game-vision.md](./docs/game-vision.md))
+Last updated: 2026-08-08 (Act 2 underway, through Phase 12 — see [docs/game-vision.md](./docs/game-vision.md))
 
 ## Why this redesign
 
@@ -20,6 +20,8 @@ Things that already cost a session real time once. Check this before touching ad
 - **`vue-router` reuses the `PlayPage` instance** across param/query-only navigations on `/play/:group` (e.g. a `?focus=` change, or `add` → `multiply` via manual URL edit / back-forward) — it does not remount. The `group` param is captured as a `computed` + an `immediate watch()` that re-runs intro setup on change; a plain `const` would go stale. Also affects manual browser verification: same-document navigations via `page.goto()` don't reload the document, so force a `page.reload()` between test navigations. (Phase 2; group-reactivity fix in Phase 8 — [docs/plan-notes/phase-8.md](./docs/plan-notes/phase-8.md).)
 - **`onBeforeRouteLeave` (in `useLeaveConfirm`) only registers under a `RouterView`** — `PlayPage`'s existing tests mount the component directly, where the guard silently no-ops (vue-router's `inject(matchedRouteKey)` falls back to a stub). Anything testing navigation guards has to mount a `RouterView` app instead. (Phase 11 — [docs/plan-notes/phase-11.md](./docs/plan-notes/phase-11.md).)
 - **Writing a `refAutoReset` ref restarts its timer**, including a write of the same value — `usePlaySession`'s `dismissStreakMilestone()` guards on the current value for exactly this reason, or every hint purchase would leave a stray pending timer. (Phase 11.)
+- **A session's table must be a `ref`, never a `computed`** — seating reads the mastery store and an rng, so a computed would re-roll the table every time an answer moved a stage, mid-session. `PlayPage.seatTable()` is called at three deliberate moments instead. (Phase 12 — [docs/plan-notes/phase-12.md](./docs/plan-notes/phase-12.md).)
+- **Pinia options-store actions can't reference `this` in a default parameter** (`scope = this.activeFamilies(group)` fails `vue-tsc` with TS2683, and `vp check --fix` catches it too) — default in the body instead. (Phase 12.)
 - **TypeScript is pinned to `^6.0.3`**, not `latest`/`7.x` — see [docs/maintainer-notes.md](./docs/maintainer-notes.md) for why (`vue-tsc` compatibility).
 
 Also see [docs/known-issues.md](./docs/known-issues.md) (not-yet-fixed bugs) and [docs/open-questions.md](./docs/open-questions.md) (undecided/answered-inline questions).
@@ -96,14 +98,14 @@ Bug fixes only, no design changes — everything that was listed in [docs/known-
 - [x] `vp test` fully green again; manual phone-width check of the play screen
 - [x] Decompose `PlayPage.vue`; adopt `@vueuse/core` (new dependency this phase)
 
-### Phase 12 — Sessions that stay short and completable — not started
+### Phase 12 — Sessions that stay short and completable — done (2026-08-08)
 
-Replace the all-active-families session target with a seated "table" of 4–6 families chosen by need (lowest stage first, at-risk later once Phase 16 exists, light review of won cards), using the existing weighted sampler. The clean-pass end condition applies to the table only, so sessions stay ~2 minutes forever and the hard cap becomes a rare fallback instead of the guaranteed ending. Also: a question ends after a right answer or a second miss — on the second miss Ziggy reveals the answer free, the family takes the wrong-outcome hit, and play moves on (kills brute-force tapping). Verify unlock cadence still functions when sessions no longer touch every active family each time.
+Sessions now seat a table of at most 6 families and end on a clean pass of that table, so a session is 12 questions at the floor whether 4 cards are in play or all 36. Ziggy deals a new card when you win every card at the table — the vision's one rule, replacing an unlock gate that needed every active family strong at once and would have quietly stopped dealing for good once one card stayed hard. A question now ends on a right answer or a second miss, with Ziggy stating the answer himself for free. A session-simulation property test found and killed a real flaw along the way: follow-up questions were re-asking already-clean permutations and un-clearing them, which is what had made the hard cap the usual ending rather than a fallback. [Full detail](./docs/plan-notes/phase-12.md).
 
-- [ ] Table selection (4–6 families) via `selectFamilies()`; completion condition scoped to the table
-- [ ] Two-miss rule with Ziggy revealing the answer in character
-- [ ] Session-length property test: completable at 36 active families
-- [ ] Retune/verify unlock thresholds against subset sessions
+- [x] Table selection (4–6 families) via `selectFamilies()`; completion condition scoped to the table
+- [x] Two-miss rule with Ziggy revealing the answer in character
+- [x] Session-length property test: completable at 36 active families
+- [x] Retune/verify unlock thresholds against subset sessions (unlock is now scoped to the table just played; `SESSION_MAX_QUESTIONS` 20 → 24 on simulated evidence)
 
 ### Phase 13 — One economy: the token wallet — not started
 

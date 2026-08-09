@@ -1,7 +1,13 @@
 // Dynamic session composition (Phase 8): replaces the old fixed-length,
-// level-numbered generateLevel(). A session targets a set of curriculum-
-// active fact families and keeps drilling until every one gets a clean
-// pass, or a hard cap kicks in so a struggling player still gets to stop.
+// level-numbered generateLevel(). A session targets a set of fact families
+// and keeps drilling until every one gets a clean pass, or a hard cap kicks
+// in so a struggling player still gets to stop.
+//
+// Phase 12 narrowed what "a set of fact families" means: a session seats a
+// *table* of at most TABLE_MAX_SEATS families (see selectTable below) rather
+// than every curriculum-active one. The clean-pass condition is scoped to the
+// table, which is what keeps a session ~2 minutes whether the player has 4
+// cards in play or all 36 — see docs/game-vision.md.
 import { Operator, Question } from "./types";
 import { FamilyMastery } from "./stores/types";
 import {
@@ -9,8 +15,10 @@ import {
   OperatorGroup,
   familyWeight,
   operatorsForGroup,
+  selectFamilies,
   weightedPick,
 } from "./mastery";
+import { UNLOCK_STAGE_THRESHOLD, curriculumOrder } from "./curriculum";
 import { shuffle } from "./utils";
 
 export const GROUP_LABELS: Record<OperatorGroup, string> = {
@@ -18,20 +26,23 @@ export const GROUP_LABELS: Record<OperatorGroup, string> = {
   multiply: "Multiplication & Division",
 };
 
-// Rough starting numbers (see docs/open-questions.md's Phase 8 entry) — a
-// session ends early on a clean pass, but never runs longer than this regardless.
-export const SESSION_MAX_QUESTIONS = 20;
+// The fallback ending, not the normal one: a session is meant to finish on a
+// clean pass of its table (12 questions for a full 6-card table), and these
+// only catch a player who keeps missing. See docs/plan-notes/phase-12.md for
+// the simulation the numbers are tuned against.
+export const SESSION_MAX_QUESTIONS = 24;
 export const SESSION_MAX_MS = 3 * 60 * 1000;
 
+// How many fact families a session seats. The starter curriculum is 4
+// families, so early tables are smaller than this by nature and grow to a
+// full table as cards are dealt; from then on the table size — and so the
+// session length — stops growing.
+export const TABLE_MAX_SEATS = 6;
+// Seats held back for a card the player has already won, so a session is
+// mostly the work in front of them plus a little defence of what they hold.
+export const TABLE_REVIEW_SEATS = 1;
+
 const DEFAULT_ANSWER_COUNT = 5;
-// Extra sampling weight for a (family, operator) permutation that still
-// needs coverage this session — either never seen yet, or its most recent
-// attempt was wrong/cheated — on top of its long-run mastery weight. Applies
-// equally to "pending" and "retry" so an unseen permutation gets pulled into
-// follow-up batches just as eagerly as a missed one, which is what turns
-// "every target family clears" into a real minimum session length instead of
-// one lucky guess per family ending things.
-const RETRY_WEIGHT_BOOST = 4;
 
 // Progress of one (family, operator) permutation within the current session
 // — e.g. a family in the "add" group has a "+" permutation and a "-"
@@ -143,6 +154,54 @@ export function resolveTargetFamilies(
   return filtered.length > 0 ? filtered : families;
 }
 
+export type TableOptions = {
+  seats?: number;
+  rng?: () => number;
+  // Families that must be seated whatever the weighting says — the card Ziggy
+  // just dealt, which the intro is about to point at and call new.
+  requiredKeys?: string[];
+};
+
+// Seats the table for one session: a handful of families out of everything
+// the player has in play, chosen by need. Cards still in Ziggy's hand (below
+// the winning stage) take every seat but one; the last is a review seat for a
+// card the player has already won, so holding onto what you have is part of
+// the session rather than a separate mode. When there aren't enough unwon
+// cards to fill the table — late game, or a narrow ?focus= — won cards take
+// the spare seats instead.
+//
+// Within each of those groups the pick is the same mastery-weighted sampler
+// the questions use, without replacement, so the weakest cards are the most
+// likely to be seated without any card being permanently unseatable.
+export function selectTable(
+  pool: FactFamily[],
+  getMastery: (key: string) => FamilyMastery | undefined,
+  options: TableOptions = {},
+): FactFamily[] {
+  const { seats = TABLE_MAX_SEATS, rng = Math.random, requiredKeys = [] } = options;
+  const size = Math.min(seats, pool.length);
+  const required = new Set(requiredKeys);
+
+  const seated = pool.filter((f) => required.has(f.key)).slice(0, size);
+  const rest = pool.filter((f) => !required.has(f.key));
+  const isWon = (f: FactFamily) => (getMastery(f.key)?.stage ?? 0) >= UNLOCK_STAGE_THRESHOLD;
+  const inHand = rest.filter((f) => !isWon(f));
+  const won = rest.filter(isWon);
+
+  const free = size - seated.length;
+  const reviewSeats = Math.min(won.length, TABLE_REVIEW_SEATS);
+  const handSeats = Math.max(0, Math.min(inHand.length, free - reviewSeats));
+  const wonSeats = Math.max(0, Math.min(won.length, free - handSeats));
+
+  seated.push(
+    ...selectFamilies(inHand, getMastery, handSeats, { rng, distinct: true }),
+    ...selectFamilies(won, getMastery, wonSeats, { rng, distinct: true }),
+  );
+  // Teaching order, so the intro reads smallest-fact-first however the seats
+  // were filled.
+  return curriculumOrder(seated);
+}
+
 type QuestionOptions = {
   getMastery?: (key: string) => FamilyMastery | undefined;
   rng?: () => number;
@@ -167,11 +226,17 @@ export function buildInitialQuestions(
 }
 
 // Follow-up batch once the initial pass is done but the session isn't
-// complete yet: weighted sample of (family, operator) permutations biased
-// heavily toward ones not yet "clean" — never seen this session, or most
-// recently wrong/cheated — with occasional interleaved review of already-
-// clean permutations (via the normal mastery-driven weight all permutations
-// keep getting).
+// complete yet: a mastery-weighted sample of only the (family, operator)
+// permutations still standing between the player and the end of the session —
+// never seen this session, or most recently wrong/cheated.
+//
+// Phase 12 narrowed this from "boost the unclean ones" to "ask nothing else".
+// Re-asking an already-clean permutation can only ever knock it back to
+// "retry", which on a 12-permutation table made a struggling player's session
+// a random walk that often only ended at the hard cap — the very thing the
+// cap is supposed to be a rare fallback for. Review of cards the player
+// already holds is the table's job now (see selectTable), not the follow-up
+// batch's.
 export function buildFollowUpQuestions(
   group: OperatorGroup,
   pool: FactFamily[],
@@ -184,12 +249,12 @@ export function buildFollowUpQuestions(
     rng = Math.random,
     answerCount = DEFAULT_ANSWER_COUNT,
   } = options;
-  const candidates = buildPermutations(group, pool);
-  const weights = candidates.map(
-    (p) =>
-      familyWeight(getMastery(p.family.key)) *
-      (statuses[p.key] === "clean" ? 1 : RETRY_WEIGHT_BOOST),
-  );
+  const permutations = buildPermutations(group, pool);
+  // Defensive fallback: a session with nothing left to clear has already
+  // ended, so this only matters if a caller asks for a batch anyway.
+  const unclean = permutations.filter((p) => statuses[p.key] !== "clean");
+  const candidates = unclean.length > 0 ? unclean : permutations;
+  const weights = candidates.map((p) => familyWeight(getMastery(p.family.key)));
   const picks: Permutation[] = [];
   for (let i = 0; i < count; i++) {
     picks.push(weightedPick(candidates, weights, rng));

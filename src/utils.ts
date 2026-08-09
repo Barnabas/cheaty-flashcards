@@ -7,8 +7,10 @@ export function shuffle<T>(array: T[]): T[] {
     .map(({ value }) => value);
 }
 
+// Whole numbers only: a kid reading "83.3%" learns nothing the "83%" didn't
+// already tell them, and decimals read as telemetry (see docs/game-vision.md).
 export function formatPercent(value: number) {
-  return (value * 100).toFixed(1) + "%";
+  return Math.round(value * 100) + "%";
 }
 
 export function formatTime(ms: number) {

@@ -4,7 +4,7 @@ Living plan index. Update checkboxes and add a one-to-three sentence summary as 
 
 **Status key:** `[ ]` not started · `[~]` in progress · `[x]` done
 
-Last updated: 2026-08-08 (Act 2 planned — see [docs/game-vision.md](./docs/game-vision.md))
+Last updated: 2026-08-08 (Act 2 underway — see [docs/game-vision.md](./docs/game-vision.md))
 
 ## Why this redesign
 
@@ -18,6 +18,8 @@ Things that already cost a session real time once. Check this before touching ad
 - **Pinia plugins registered via `pinia.use()`** only activate once the pinia instance is installed on a real Vue app (`app.use(pinia)`) — `setActivePinia(pinia)` alone is not enough. Persistence tests need a throwaway `createApp({}).use(pinia)` per simulated "reload". (Phase 1.)
 - **Run tests with `NODE_OPTIONS=--no-experimental-webstorage`** (already baked into the `test` script) — Node 22+'s experimental global `localStorage` shadows jsdom's working one in Vitest 4.1 otherwise. (Phase 1.)
 - **`vue-router` reuses the `PlayPage` instance** across param/query-only navigations on `/play/:group` (e.g. a `?focus=` change, or `add` → `multiply` via manual URL edit / back-forward) — it does not remount. The `group` param is captured as a `computed` + an `immediate watch()` that re-runs intro setup on change; a plain `const` would go stale. Also affects manual browser verification: same-document navigations via `page.goto()` don't reload the document, so force a `page.reload()` between test navigations. (Phase 2; group-reactivity fix in Phase 8 — [docs/plan-notes/phase-8.md](./docs/plan-notes/phase-8.md).)
+- **`onBeforeRouteLeave` (in `useLeaveConfirm`) only registers under a `RouterView`** — `PlayPage`'s existing tests mount the component directly, where the guard silently no-ops (vue-router's `inject(matchedRouteKey)` falls back to a stub). Anything testing navigation guards has to mount a `RouterView` app instead. (Phase 11 — [docs/plan-notes/phase-11.md](./docs/plan-notes/phase-11.md).)
+- **Writing a `refAutoReset` ref restarts its timer**, including a write of the same value — `usePlaySession`'s `dismissStreakMilestone()` guards on the current value for exactly this reason, or every hint purchase would leave a stray pending timer. (Phase 11.)
 - **TypeScript is pinned to `^6.0.3`**, not `latest`/`7.x` — see [docs/maintainer-notes.md](./docs/maintainer-notes.md) for why (`vue-tsc` compatibility).
 
 Also see [docs/known-issues.md](./docs/known-issues.md) (not-yet-fixed bugs) and [docs/open-questions.md](./docs/open-questions.md) (undecided/answered-inline questions).
@@ -86,12 +88,13 @@ A whole-app review (2026-08-08, played in-browser at phone and desktop sizes) co
 
 Each phase below is scoped to one agent session. Sequencing: Phase 11 can land any time; 12 → 13 → 14 in order (each builds on the last); 15 and 16 need 14; 17 goes last.
 
-### Phase 11 — Playability repairs — not started
+### Phase 11 — Playability repairs — done (2026-08-08)
 
-Bug fixes only, no design changes — everything currently listed in [docs/known-issues.md](./docs/known-issues.md), which the 2026-08-08 review expanded. Headliners: the cheat buttons overflow the viewport on a 390px phone (horizontal scroll on the core play screen), and `SiteFooter.vue`'s external link is missing `rel="noopener"`, which is an actually-failing test on this branch.
+Bug fixes only, no design changes — everything that was listed in [docs/known-issues.md](./docs/known-issues.md), which the 2026-08-08 review expanded; that list is now empty. The play screen no longer scrolls sideways at 390px, the session's final answer gets the same green flash and sound as any other, the progress bar measures the actual end condition instead of a growing queue, leaving mid-session asks first, and the two Phase 3 double-tap/stale-timeout races are closed. Then, on maintainability feedback, `PlayPage.vue` (700 lines) was decomposed into three composables and seven `components/play/*` screens with `@vueuse/core` replacing the hand-rolled timers and dialog plumbing — no test changes needed. [Full detail](./docs/plan-notes/phase-11.md).
 
-- [ ] Fix every entry in [docs/known-issues.md](./docs/known-issues.md); update that doc as items land
-- [ ] `vp test` fully green again; manual phone-width check of the play screen
+- [x] Fix every entry in [docs/known-issues.md](./docs/known-issues.md); update that doc as items land
+- [x] `vp test` fully green again; manual phone-width check of the play screen
+- [x] Decompose `PlayPage.vue`; adopt `@vueuse/core` (new dependency this phase)
 
 ### Phase 12 — Sessions that stay short and completable — not started
 

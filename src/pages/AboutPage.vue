@@ -34,6 +34,12 @@ const credits: Credit[] = [
   },
   { name: "Vue Router", url: "https://router.vuejs.org", role: "page routing", license: "MIT" },
   { name: "Unhead", url: "https://unhead.unjs.io", role: "page titles", license: "MIT" },
+  {
+    name: "VueUse",
+    url: "https://vueuse.org",
+    role: "timers, dialogs and other reactive plumbing",
+    license: "MIT",
+  },
   { name: "Tailwind CSS", url: "https://tailwindcss.com", role: "styling", license: "MIT" },
   { name: "daisyUI", url: "https://daisyui.com", role: "the component look", license: "MIT" },
   {

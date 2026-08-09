@@ -9,6 +9,7 @@ import IconExternalLink from "~icons/feather/external-link";
         class="link link-hover inline-flex items-center gap-1"
         href="https://barnabas.me"
         target="_blank"
+        rel="noopener noreferrer"
       >
         barnabas.me
         <IconExternalLink class="size-3" />

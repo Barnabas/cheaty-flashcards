@@ -10,6 +10,7 @@
 - **howler** for all 8 sound effects (gameplay cues plus streak/mastery/badge chimes), played via a single `playSound()` in `sounds.ts`
 - **canvas-confetti** for celebration bursts (session clears, cheat-free streak milestones, new personal bests)
 - **@unhead/vue** for `<title>` management
+- **@vueuse/core** for composable plumbing — reach for it before hand-rolling timers, dialog state or lifecycle cleanup (`useTimeoutFn`, `refAutoReset`, `useConfirmDialog`, `createEventHook` are all in use)
 - **vue-tsc** for type-checking `.vue` files during `pnpm build`
 
 ## Project structure
@@ -28,15 +29,25 @@ src/
   sounds.ts          Howler sound effect wrappers (playSound())
   utils.ts           shuffle/format helpers + SessionMetrics (per-session scoring/timing)
   stores/            Pinia stores: settings, mastery, curriculum, progress, streak
+  composables/
+    usePlaySession.ts   the session runtime: question queue, answer handling, end condition
+    useHintTokens.ts    the cheat economy: token budget, eliminate/reveal, costs
+    useLeaveConfirm.ts  route guard + confirm dialog for abandoning work in progress
   pages/
     HomePage.vue      Ziggy's greeting + per-group progress panels + Play entry points
-    PlayPage.vue       intro (curriculum preview) / active (quiz) / outro (recap) session flow
+    PlayPage.vue       intro/active/outro phase machine + route concerns; the screens
+                       themselves live in components/play/
     AboutPage.vue      what it is, who made it, asset provenance, library credits
   components/
     SiteHeader.vue, SiteFooter.vue, NavBreadcrumbs.vue, FactFamilyShape.vue,
     OperatorGroupPanel.vue
     mascot/ZiggyImage.vue    the mascot art, pose -> asset
     mascot/ZiggySpeaks.vue   portrait + speech bubble + typewriter reveal
+    play/SessionIntro.vue    what's on the table + start/bonus/focus controls
+    play/SessionOutro.vue    score table, Ziggy's reaction, family recap, next actions
+    play/QuestionCard.vue    the sum and its answer buttons
+    play/CheatControls.vue   eliminate/reveal buttons + token counter
+    play/StreakToast.vue, play/SessionProgress.vue, play/LeaveSessionModal.vue
   assets/sounds/     mp3 files played via howler
   assets/ziggy/      mascot source art (1024px PNG); web/ holds the small WebP
                      derivatives components actually import

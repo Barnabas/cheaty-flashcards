@@ -118,7 +118,7 @@ describe("HomePage dashboard", () => {
     const wrapper = mount(HomePage, { global: { plugins: [router] } });
 
     const multiplyPanel = wrapper.findAll('[data-testid="operator-group-panel"]')[1];
-    expect(multiplyPanel.find('[data-testid="session-badge"]').text()).toContain("85.0%");
+    expect(multiplyPanel.find('[data-testid="session-badge"]').text()).toContain("85%");
     const additionPanel = wrapper.findAll('[data-testid="operator-group-panel"]')[0];
     expect(additionPanel.find('[data-testid="session-badge"]').exists()).toBe(false);
   });

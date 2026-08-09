@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vite-plus/test";
-import { mount, flushPromises } from "@vue/test-utils";
+import { mount, flushPromises, VueWrapper } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
@@ -64,12 +64,16 @@ async function mountPlay({
   return { wrapper, router };
 }
 
-async function startSession(wrapper: Awaited<ReturnType<typeof mountPlay>>["wrapper"]) {
+// Loosely typed so the same helpers work for a directly-mounted PlayPage and
+// for the RouterView-hosted mount the leave-guard tests need.
+type PlayWrapper = VueWrapper<any>;
+
+async function startSession(wrapper: PlayWrapper) {
   await wrapper.get('[data-testid="start-session-button"]').trigger("click");
   await flushPromises();
 }
 
-function answerButtons(wrapper: Awaited<ReturnType<typeof mountPlay>>["wrapper"]) {
+function answerButtons(wrapper: PlayWrapper) {
   return wrapper.findAll('[data-testid="answer-button"]');
 }
 
@@ -251,27 +255,201 @@ describe("PlayPage cheat-free streak", () => {
   });
 });
 
+describe("PlayPage answer feedback", () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("gives the session's final answer the same feedback as any other", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 1 });
+    await startSession(wrapper);
+    vi.useFakeTimers();
+
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "2")!
+      .trigger("click");
+    vi.advanceTimersByTime(500);
+    await nextTick();
+
+    // Second (and session-completing) answer: the green flash has to land
+    // before the outro takes over.
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "2")!
+      .trigger("click");
+    expect(
+      answerButtons(wrapper)
+        .find((b) => b.classes().includes("btn-success"))!
+        .text(),
+    ).toBe("2");
+    expect(wrapper.find('[data-testid="session-summary"]').exists()).toBe(false);
+
+    vi.advanceTimersByTime(500);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="session-summary"]').exists()).toBe(true);
+  });
+
+  it("ignores extra taps while a correct answer is still on screen", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 4 });
+    await startSession(wrapper);
+    vi.useFakeTimers();
+    const mastery = useMasteryStore();
+    const familyKey = familyPool("add")[0].key;
+
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "2")!
+      .trigger("click");
+    // Impatient double-tap on a wrong answer during the 500ms hand-off.
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "3")!
+      .trigger("click");
+
+    // One attempt recorded, not two — a stray "wrong" here would also have
+    // knocked the family's freshly-earned stage back down.
+    expect(mastery.getFamily(familyKey)).toMatchObject({ timesSeen: 1, timesCorrect: 1 });
+    expect(answerButtons(wrapper).some((b) => b.classes().includes("btn-error"))).toBe(false);
+  });
+
+  it("leaves no reveal cleanup pending once the question has moved on", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 4 });
+    await startSession(wrapper);
+    vi.useFakeTimers();
+
+    await wrapper.get('[data-testid="reveal-button"]').trigger("click");
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "2")!
+      .trigger("click");
+    vi.advanceTimersByTime(500);
+    await nextTick();
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("keeps the progress bar from walking backwards", async () => {
+    const { wrapper } = await mountPlay({ familyCount: 1 });
+    await startSession(wrapper);
+    vi.useFakeTimers();
+    const progress = () => wrapper.get('[data-testid="session-progress"]').attributes("value");
+
+    // "+" clean.
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "2")!
+      .trigger("click");
+    vi.advanceTimersByTime(500);
+    await nextTick();
+    expect(progress()).toBe("1");
+
+    // "-" answered with a reveal, so it stays uncleared and the session
+    // continues into a follow-up batch.
+    await wrapper.get('[data-testid="reveal-button"]').trigger("click");
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "2")!
+      .trigger("click");
+    vi.advanceTimersByTime(500);
+    await nextTick();
+
+    // Follow-up question on the already-clean "+", answered wrong: the
+    // permutation goes back to "retry" but the bar holds its ground.
+    await answerButtons(wrapper)
+      .find((b) => b.text() === "3")!
+      .trigger("click");
+    await nextTick();
+    expect(progress()).toBe("1");
+  });
+});
+
+describe("PlayPage leaving mid-session", () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
+  // The abandonment guard is a route guard, so it only registers when the
+  // page is rendered by a RouterView rather than mounted directly.
+  async function mountRouted() {
+    setActivePinia(createPinia());
+    useSettingsStore().soundEnabled = false;
+    useCurriculumStore().active.add = familyPool("add")
+      .slice(0, 4)
+      .map((f) => f.key);
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/", component: { template: "<div>home</div>" } },
+        { path: "/play/:group", component: PlayPage, props: true },
+      ],
+    });
+    await router.push("/play/add");
+    await router.isReady();
+
+    const wrapper = mount(
+      { template: "<RouterView />" },
+      { global: { plugins: [router, createHead()] } },
+    );
+    await flushPromises();
+    return { wrapper, router };
+  }
+
+  it("asks before throwing away a session in progress", async () => {
+    const { wrapper, router } = await mountRouted();
+    await startSession(wrapper);
+
+    const navigation = router.push("/");
+    await flushPromises();
+    expect(wrapper.find('[data-testid="leave-confirm"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="stay-button"]').trigger("click");
+    await navigation;
+    await flushPromises();
+
+    expect(router.currentRoute.value.path).toBe("/play/add");
+    expect(wrapper.find('[data-testid="leave-confirm"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="answer-button"]').exists()).toBe(true);
+  });
+
+  it("lets you go once you've confirmed", async () => {
+    const { wrapper, router } = await mountRouted();
+    await startSession(wrapper);
+
+    const navigation = router.push("/");
+    await flushPromises();
+    await wrapper.get('[data-testid="leave-button"]').trigger("click");
+    await navigation;
+    await flushPromises();
+
+    expect(router.currentRoute.value.path).toBe("/");
+  });
+
+  it("does not ask when no session is in progress", async () => {
+    const { wrapper, router } = await mountRouted();
+
+    await router.push("/");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="leave-confirm"]').exists()).toBe(false);
+    expect(router.currentRoute.value.path).toBe("/");
+  });
+});
+
 describe("PlayPage session outro", () => {
   beforeEach(() => {
     vi.useRealTimers();
   });
 
   // familyCount: 1 -> 2 (family, operator) permutations ("+" and "-") that
-  // both have to clear before the session ends; the first correct answer
-  // defers to the next question via a real setTimeout, so fake timers drive
-  // that gap.
-  async function completeSingleFamilySession(
-    wrapper: Awaited<ReturnType<typeof mountPlay>>["wrapper"],
-  ) {
+  // both have to clear before the session ends; every correct answer, the
+  // session-ending one included, holds its green flash for 500ms before the
+  // page moves on, so fake timers drive those gaps.
+  async function completeSingleFamilySession(wrapper: PlayWrapper) {
     vi.useFakeTimers();
-    await answerButtons(wrapper)
-      .find((b) => b.text() === "2")!
-      .trigger("click");
-    vi.advanceTimersByTime(500);
-    await nextTick();
-    await answerButtons(wrapper)
-      .find((b) => b.text() === "2")!
-      .trigger("click");
+    for (let i = 0; i < 2; i++) {
+      await answerButtons(wrapper)
+        .find((b) => b.text() === "2")!
+        .trigger("click");
+      vi.advanceTimersByTime(500);
+      await nextTick();
+    }
     await flushPromises();
   }
 
